@@ -1,21 +1,23 @@
+PYTHON=python
+
 all: moduleall modulealldelegate moduleexports moduleban modulealias
 
 moduleall:
-	python tests/testModuleAll.py
+	$(PYTHON) tests/testModuleAll.py
 	@echo "----------------------"
 
 modulealldelegate:
-	python tests/testAllDelegate.py
+	$(PYTHON) tests/testAllDelegate.py
 	@echo "----------------------"
 
 moduleexports:
-	python tests/testExports.py
+	$(PYTHON) tests/testExports.py
 	@echo "----------------------"
 
 moduleban:
-	python tests/testBan.py
+	$(PYTHON) tests/testBan.py
 	@echo "----------------------"
 
 modulealias:
-	python tests/testAlias.py
+	$(PYTHON) tests/testAlias.py
 	@echo "----------------------"

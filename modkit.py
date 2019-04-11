@@ -21,6 +21,8 @@ class Module(ModuleType):
 		if name == '__all__':
 			exports = set(list(self._vars['exports']) or dir(self._vars['oldmod']))
 			return list(exports - self._vars['banned'])
+		if name == '__path__':
+			return None
 
 		# real name
 		rname = self._vars['alias'].get(name, name)
@@ -49,7 +51,13 @@ class Modkit(object):
 
 	def __init__(self):
 		# whereever imports this module directly
-		mymod = inspect.getmodule(inspect.currentframe().f_back.f_back)
+		frame = None
+		for f in inspect.getouterframes(inspect.currentframe())[2:]:
+			if f[0].f_code.co_filename.startswith('<frozen importlib'):
+				continue
+			frame = f[0]
+			break
+		mymod = inspect.getmodule(frame)
 		if mymod.__name__ == '__main__':
 			raise ImportError('modkit is intended to be used in a module other than a script.')
 

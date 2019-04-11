@@ -40,3 +40,9 @@ except Exception as ex:
 print('delegated.y, expected')
 from moduleBan import y
 print(y)
+
+print('NameBannedFromImport, expected')
+try:
+	from moduleBan import delegate
+except Exception as ex:
+	print(type(ex).__name__)
