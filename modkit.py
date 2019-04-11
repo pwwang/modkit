@@ -1,6 +1,9 @@
+VERSION = '0.0.1'
+
 import sys
 import inspect
 from types import ModuleType
+
 
 class NameBannedFromImport(ImportError): pass
 class NameNotExportable(ImportError): pass

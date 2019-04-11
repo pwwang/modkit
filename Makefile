@@ -21,3 +21,11 @@ moduleban:
 modulealias:
 	$(PYTHON) tests/testAlias.py
 	@echo "----------------------"
+
+build:
+	$(PYTHON) setup.py sdist bdist_wheel --universal
+
+dist:
+	twine upload --skip-existing dist/* 
+
+.PHONY: build dist
