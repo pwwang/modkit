@@ -1,31 +1,33 @@
 VERSION = '0.0.1'
 
 import sys
+import ast
 import inspect
 from types import ModuleType
 
 
 class NameBannedFromImport(ImportError): pass
-class NameNotExportable(ImportError): pass
+class NameNotImportable(ImportError): pass
 class NameNotExists(ImportError): pass
+class ModuleNotCallable(TypeError): pass
 
 class Module(ModuleType):
 
 	def __init__(self, oldmod):
-		self._vars = dict(
+		self.__path__ = []
+		self._vars    = dict(
 			oldmod   = oldmod,
-			banned   = set(['_modkit_delegate']),
+			banned   = set(['_modkit_delegate', '_modkit_call']),
 			exports  = set(),
 			alias    = {},
-			delegate = None
+			delegate = getattr(oldmod, '_modkit_delegate', None),
+			call     = getattr(oldmod, '_modkit_call', None),
 		)
 	
 	def __getattr__(self, name):
 		if name == '__all__':
 			exports = set(list(self._vars['exports']) or dir(self._vars['oldmod']))
 			return list(exports - self._vars['banned'])
-		if name == '__path__':
-			return None
 
 		# real name
 		rname = self._vars['alias'].get(name, name)
@@ -35,7 +37,7 @@ class Module(ModuleType):
 		
 		# check if name in exports
 		if self._vars['exports'] and name not in self._vars['exports'] and rname not in self._vars['exports']:
-			raise NameNotExportable('{}.{}'.format(self._vars['oldmod'].__name__, name))
+			raise NameNotImportable('{}.{}'.format(self._vars['oldmod'].__name__, name))
 		
 		# check if name exists
 		if hasattr(self._vars['oldmod'], rname):
@@ -49,6 +51,24 @@ class Module(ModuleType):
 		except (AttributeError):
 			raise NameNotExists('{}.{}'.format(self._vars['oldmod'].__name__, rname) 
 				+ ('(a.k.a {})'.format(name) if name != rname else ''))
+
+	def __call__(self, *args, **kwargs):
+		newmod = self.__class__(self._vars['oldmod'])
+		parent = inspect.stack()[1]
+		code   = parent[4][0].strip()
+		parsed = ast.parse(code)
+		# new module name
+		nmname = parsed.body[0].targets[0].id
+		newmod.__name__ = nmname
+
+		if callable(self._vars['call']):
+			sys.modules[nmname] = newmod
+			return self._vars['call'](newmod, *args, **kwargs)
+		try:
+			sys.modules[nmname] = newmod
+			return self._vars['oldmod']._modkit_call(newmod, *args, **kwargs)
+		except (AttributeError):
+			raise ModuleNotCallable(self._vars['oldmod'].__name__)
 
 class Modkit(object):
 
