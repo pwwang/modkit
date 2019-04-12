@@ -117,3 +117,25 @@ Then you are able to import a, b and c from mymodule:
 ```python
 from mymodule import a, b, c
 ```
+
+### Generating a new module based on current one
+`mymodule.py`  
+```python
+import modkit
+
+A = 1
+def _modkit_call(module, a):
+	setattr(module, 'A', 2)
+	return module
+```
+
+```python
+import mymodule
+A # 1
+mymodule2 = mymodule(2)
+mymodule2.A # 2
+from mymodule2 import A
+A # 2
+from mymodule import A
+A # 1
+```
