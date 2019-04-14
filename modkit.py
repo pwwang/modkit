@@ -17,7 +17,7 @@ class Module(ModuleType):
 		self.__path__ = []
 		self._vars    = dict(
 			oldmod   = oldmod,
-			banned   = set(['_modkit_delegate', '_modkit_call']),
+			banned   = set(['_modkit_delegate', '_modkit_call', 'modkit']),
 			exports  = set(),
 			alias    = {},
 			delegate = getattr(oldmod, '_modkit_delegate', None),
