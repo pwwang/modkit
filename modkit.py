@@ -55,10 +55,14 @@ class Module(ModuleType):
 	def __call__(self, *args, **kwargs):
 		newmod = self.__class__(self._vars['oldmod'])
 		parent = inspect.stack()[1]
-		code   = parent[4][0].strip()
-		parsed = ast.parse(code)
-		# new module name
-		nmname = parsed.body[0].targets[0].id
+		if parent[4] is None:
+			# called from interactive mode
+			nmname = self._vars['oldmod'].__name__ + '_new'
+		else:
+			code   = parent[4][0].strip()
+			parsed = ast.parse(code)
+			# new module name
+			nmname = parsed.body[0].targets[0].id
 		newmod.__name__ = nmname
 
 		if callable(self._vars['call']):
