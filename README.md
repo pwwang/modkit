@@ -15,7 +15,8 @@ pip intall git+https://github.com/pwwanbg/modkit
 ### Allowing specific names to be imported, even with `from ... import *`
 `mymodule.py`:  
 ```python
-from modkit import modkit
+from modkit import Modkit
+modkit = Modkit()
 modkit.exports('a', 'b')
 a = 1
 b = 2
@@ -43,7 +44,8 @@ from mymodule import c
 ### Banning certain names
 `mymodule.py`:  
 ```python
-from modkit import modkit
+from modkit import Modkit
+modkit = Modkit()
 modkit.ban('a')
 a = 1
 ```
@@ -59,7 +61,8 @@ from mymodule import a
 ### Aliasing names
 `mymodule.py`:  
 ```python
-from modkit import modkit
+from modkit import Modkit
+modkit = Modkit()
 modkit.alias('some_internal_wired_name', 'a')
 some_internal_wired_name = 1
 ```
@@ -72,7 +75,8 @@ a # 1
 ### Importing names dynamically
 `mymodule.py`:  
 ```python
-from modkit import modkit
+from modkit import Modkit
+modkit = Modkit()
 
 def delegate(name):
 	if name == 'a':
@@ -103,6 +107,7 @@ from mymodule import delegate
 `mymodule.py`
 ```python
 import modkit
+modkit.Modkit()
 
 def _modkit_delegate(name):
 	if name == 'a':
@@ -122,6 +127,7 @@ from mymodule import a, b, c
 `mymodule.py`  
 ```python
 import modkit
+modkit.Modkit()
 
 A = 1
 def _modkit_call(module, a):

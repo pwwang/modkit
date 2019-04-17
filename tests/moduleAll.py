@@ -1,4 +1,5 @@
-from modkit import modkit
+from modkit import Modkit
+modkit = Modkit()
 
 a = 1
 b = 2

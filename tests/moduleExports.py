@@ -1,4 +1,5 @@
-from modkit import modkit
+from modkit import Modkit
+modkit = Modkit()
 modkit.exports('a', 'c', 'x')
 
 a = 1

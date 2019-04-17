@@ -1,4 +1,4 @@
-VERSION = '0.0.3'
+VERSION = '0.0.4'
 
 import sys
 import ast
@@ -79,7 +79,7 @@ class Modkit(object):
 	def __init__(self):
 		# whereever imports this module directly
 		frame = None
-		for f in inspect.getouterframes(inspect.currentframe())[2:]:
+		for f in inspect.getouterframes(inspect.currentframe())[1:]:
 			if f[0].f_code.co_filename.startswith('<frozen importlib'):
 				continue
 			frame = f[0]
@@ -109,4 +109,3 @@ class Modkit(object):
 		self.module._vars['delegate'] = func
 		self.ban(func.__name__)
 
-modkit = Modkit()
