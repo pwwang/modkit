@@ -96,4 +96,5 @@ export/
 *.svg
 *.dot
 *.queue.txt
+*.bak
 site/
