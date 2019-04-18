@@ -1,6 +1,8 @@
+import sys
 from os import path
 import unittest
 from cmdy import python
+python = python.bake(_exe = sys.executable)
 
 __DIR__ = path.dirname(path.abspath(__file__))
 
