@@ -9,8 +9,12 @@ test:
 build:
 	$(PYTHON) setup.py sdist bdist_wheel --universal
 
-dist:
+upload:
 	twine upload --skip-existing dist/* 
+
+git: *.py Makefile tests/*.py
+	git commit -a -m "$(MSG)"; \
+	git push; 
 
 publish: modkit.py
 	@$(eval CURRVER=$(shell head -1 $< | sed 's/[^0-9.]//g')) \
@@ -25,6 +29,8 @@ publish: modkit.py
 	echo "Pushing to github ..."; \
 	git commit -a -m "$$newver $(MSG)"; \
 	git push; \
+	git tag "$$newver"; \
+	git push --tags; \
 	echo "Building the package ..."; \
 	$(PYTHON) setup.py sdist bdist_wheel --universal; \
 	echo "Uploading to pypi ..."; \
