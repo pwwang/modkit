@@ -5,7 +5,7 @@ print('1, expected')
 print(moduleCall.A)
 
 moduleCall2 = moduleCall(2)
-print('1, expected # make sure it is not changed.')
+print('1, expected ## make sure it is not changed.')
 print(moduleCall.A)
 print('2, expected')
 print(moduleCall2.A)
