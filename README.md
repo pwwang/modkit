@@ -28,7 +28,7 @@ Try to import this module:
 import mymodule as mm
 mm.a # 1
 mm.b # 2
-mm.c # NameNotExportable
+mm.c # NameNotImportable
 ```
 
 ```python
@@ -37,7 +37,7 @@ a # 1
 b # 2
 c # NameError
 
-# NameNotExportable
+# NameNotImportable
 from mymodule import c
 ```
 
@@ -102,7 +102,7 @@ from mymodule import delegate
 # mymodule.modkit.unban('delegate')
 ```
 
-`modkit` has reserved delegate function with name `_modkit_delegate`. With this function defined in your module, you want have to call `modkit.delegate`
+`modkit` has reserved delegate function with name `_modkit_delegate`. With this function defined in your module, you won't have to call `modkit.delegate`
 
 `mymodule.py`
 ```python
@@ -116,6 +116,8 @@ def _modkit_delegate(name):
 		return 2
 	if name == 'c':
 		return lambda: 3
+
+# nothing needs to do
 ```
 
 Then you are able to import a, b and c from mymodule:
