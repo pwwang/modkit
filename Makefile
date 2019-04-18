@@ -1,5 +1,6 @@
 PYTHON=python
 MSG=
+SRC=modkit.py
 
 all: test
 
@@ -16,7 +17,7 @@ git: *.py Makefile tests/*.py
 	git commit -a -m "$(MSG)"; \
 	git push; 
 
-publish: modkit.py
+publish: $(SRC)
 	@$(eval CURRVER=$(shell head -1 $< | sed 's/[^0-9.]//g')) \
 	echo '- Current version: $(CURRVER)'; \
 	ver1=$$(echo $(CURRVER) | cut -d. -f1); \
