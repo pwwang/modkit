@@ -23,7 +23,7 @@ class Module(ModuleType):
 			delegate = getattr(oldmod, '_modkit_delegate', None),
 			call     = getattr(oldmod, '_modkit_call', None),
 		)
-	
+
 	def __getattr__(self, name):
 		if name == '__all__':
 			exports = set(list(self._vars['exports']) or dir(self._vars['oldmod']))
@@ -34,22 +34,22 @@ class Module(ModuleType):
 		# check if it is banned
 		if name in self._vars['banned'] or rname in self._vars['banned']:
 			raise NameBannedFromImport('{}.{}'.format(self._vars['oldmod'].__name__, name))
-		
+
 		# check if name in exports
 		if self._vars['exports'] and name not in self._vars['exports'] and rname not in self._vars['exports']:
 			raise NameNotImportable('{}.{}'.format(self._vars['oldmod'].__name__, name))
-		
+
 		# check if name exists
 		if hasattr(self._vars['oldmod'], rname):
 			return getattr(self._vars['oldmod'], rname)
-		
+
 		if callable(self._vars['delegate']):
 			return self._vars['delegate'](name)
 
 		try:
 			return self._vars['oldmod']._modkit_delegate(name)
 		except (AttributeError):
-			raise NameNotExists('{}.{}'.format(self._vars['oldmod'].__name__, rname) 
+			raise NameNotExists('{}.{}'.format(self._vars['oldmod'].__name__, rname)
 				+ ('(a.k.a {})'.format(name) if name != rname else ''))
 
 	def __call__(self, *args, **kwargs):
@@ -67,10 +67,12 @@ class Module(ModuleType):
 
 		if callable(self._vars['call']):
 			sys.modules[nmname] = newmod
-			return self._vars['call'](newmod, *args, **kwargs)
+			self._vars['call'](self, newmod, *args, **kwargs)
+			return newmod
 		try:
 			sys.modules[nmname] = newmod
-			return self._vars['oldmod']._modkit_call(newmod, *args, **kwargs)
+			self._vars['oldmod']._modkit_call(self, newmod, *args, **kwargs)
+			return newmod
 		except (AttributeError):
 			raise ModuleNotCallable(self._vars['oldmod'].__name__)
 
