@@ -13,7 +13,6 @@ class NameNotExists(ImportError): pass
 
 class Module(ModuleType):
 
-
 	def __init__(self, module, basemodule = None):
 		super(Module, self).__init__(module.__name__)
 		self.__basemodule = basemodule or module
@@ -21,10 +20,11 @@ class Module(ModuleType):
 		self.__envs   = module._envs if isinstance(module, Module) else vars(module)
 		self.__envs['__path__'] = []
 		self.__envs['__file__'] = self.__basemodule.__file__
+		self.__doc__ = self.__basemodule.__doc__
 
-		self.__exports  = set()
-		self.__banned   = set(['modkit'])
-		self.__alias    = {}
+		self.__exports = set()
+		self.__banned  = set(['modkit', 'Modkit'])
+		self.__alias   = {}
 
 	def __repr__(self):
 		if self.__module is self.__basemodule:
@@ -34,7 +34,8 @@ class Module(ModuleType):
 
 	@property
 	def _basemodule(self):
-		return self.__basemodule._basemodule if isinstance(self.__basemodule, Module) else self.__basemodule
+		return self.__basemodule._basemodule if isinstance(self.__basemodule, Module) \
+			else self.__basemodule
 
 	def __getattr__(self, name):
 		if name == '__all__':
