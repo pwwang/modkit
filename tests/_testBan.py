@@ -43,6 +43,6 @@ print(y)
 
 print('NameBannedFromImport, expected')
 try:
-	from moduleBan import delegate
+	from moduleBan import a
 except Exception as ex:
 	print(type(ex).__name__)

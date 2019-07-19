@@ -1,4 +1,4 @@
-VERSION = '0.0.7'
+__version__ = '0.0.7'
 
 import sys
 import ast
@@ -23,7 +23,7 @@ class Module(ModuleType):
 		self.__doc__ = self.__basemodule.__doc__
 
 		self.__exports = set()
-		self.__banned  = set(['modkit', 'Modkit'])
+		self.__banned  = set(['modkit', 'Modkit', '_modkit_delegate'])
 		self.__alias   = {}
 
 	def __repr__(self):
@@ -42,6 +42,7 @@ class Module(ModuleType):
 			exports = self.__exports or set(self.__envs.keys())
 			return list(exports - self.__banned)
 
+
 		if name == '_exports':
 			return self.__exports
 		if name == '_banned':
@@ -55,14 +56,18 @@ class Module(ModuleType):
 		if name in self.__banned or rname in self.__banned:
 			raise NameBannedFromImport('{}.{}'.format(self.__name__, name))
 
+		if name in ('__path__', '__file__'):
+			# should not be banned
+			return self.__envs[name]
+
 		if self.__exports and name not in self.__exports and rname not in self.__exports:
 			raise NameNotImportable('{}.{}'.format(self.__name__, name))
 
 		if name in self.__envs or rname in self.__envs:
 			return self.__envs[rname]
 
-		if '_modkit_delegate' in self.__envs and callable(self._modkit_delegate):
-			return self._modkit_delegate(name)
+		if '_modkit_delegate' in self.__envs and callable(self.__envs['_modkit_delegate']):
+			return self.__envs['_modkit_delegate'](name)
 		raise AttributeError
 
 	def __call__(self, *args, **kwargs):
