@@ -1,5 +1,10 @@
 # modkit
 
+[![Pypi](https://img.shields.io/pypi/v/modkit?style=flat-square)](https://pypi.org/project/modkit/)
+[![Github](https://img.shields.io/github/tag/pwwang/modkit?style=flat-square)](https://github.com/pwwang/modkit)
+[![PythonVers](https://img.shields.io/pypi/pyversions/modkit?style=flat-square)](https://pypi.org/project/modkit/)
+[![Travis building](https://img.shields.io/travis/pwwang/modkit?style=flat-square)](https://travis-ci.org/pwwang/modkit)
+
 A package to manage your python modules
 
 ## Install
