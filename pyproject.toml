@@ -15,7 +15,7 @@ repository = "https://github.com/pwwang/modkit"
 include = "modkit.py"
 
 [tool.poetry.dependencies]
-python = "^3.5"
+python = "^3.6"
 
 [tool.poetry.dev-dependencies]
 pytest = "*"
