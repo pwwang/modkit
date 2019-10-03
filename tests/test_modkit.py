@@ -44,7 +44,7 @@ def testWildExports():
 	one('_testWildExports.py')
 
 def testRepr():
-	import moduleExports as me
+	from . import moduleExports as me
 	assert '(modkit wrapped)' in repr(me)
 
 	me2 = me()
