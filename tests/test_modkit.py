@@ -39,3 +39,14 @@ def testAllDelegate():
 
 def testMultiple():
 	one('_testMultiple.py')
+
+def testWildExports():
+	one('_testWildExports.py')
+
+def testRepr():
+	import moduleExports as me
+	assert '(modkit wrapped)' in repr(me)
+
+	me2 = me()
+	assert 'baked from' in repr(me2)
+

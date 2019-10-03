@@ -18,11 +18,13 @@ pip intall git+https://github.com/pwwanbg/modkit
 ## Usage
 
 ### Allowing specific names to be imported, even with `from ... import *`
-`mymodule.py`:  
+`mymodule.py`:
 ```python
 from modkit import Modkit
 modkit = Modkit()
 modkit.exports('a', 'b')
+# Now you can specify glob patterns for exports via 0.1.0
+# modkit.exports('p*') # works with dynamic exports
 a = 1
 b = 2
 c = 3
@@ -47,7 +49,7 @@ from mymodule import c
 ```
 
 ### Banning certain names
-`mymodule.py`:  
+`mymodule.py`:
 ```python
 from modkit import Modkit
 modkit = Modkit()
@@ -64,7 +66,7 @@ from mymodule import a
 ```
 
 ### Aliasing names
-`mymodule.py`:  
+`mymodule.py`:
 ```python
 from modkit import Modkit
 modkit = Modkit()
@@ -78,7 +80,7 @@ a # 1
 ```
 
 ### Importing names dynamically
-`mymodule.py`:  
+`mymodule.py`:
 ```python
 from modkit import Modkit
 modkit = Modkit()
@@ -131,7 +133,7 @@ from mymodule import a, b, c
 ```
 
 ### Generating a new module based on current one
-`mymodule.py`  
+`mymodule.py`
 ```python
 import modkit
 modkit.Modkit()

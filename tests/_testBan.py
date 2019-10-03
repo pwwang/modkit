@@ -46,3 +46,7 @@ try:
 	from moduleBan import a
 except Exception as ex:
 	print(type(ex).__name__)
+
+mb._mkenvs['modkit'].unban('x')
+print('delegated.x, expected')
+print(mb.x)

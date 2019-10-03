@@ -1,6 +1,6 @@
 from modkit import Modkit
 modkit = Modkit()
-modkit.exports('a', 'c', 'x')
+modkit.exports('a', 'c', 'x', 'nosuch')
 
 a = 1
 b = 2
