@@ -101,7 +101,11 @@ class Module(ModuleType):
 
 		try:
 			parent = inspect.stack()[1]
-			code   = parent[4][0].strip()
+			try:
+				code   = parent[4][0].strip()
+			except TypeError:
+				# in python REPL
+				raise RuntimeError("modkit is not supposed to run in REPL.")
 			parsed = ast.parse(code)
 			# new module name
 			nmname = parsed.body[0].targets[0].id
