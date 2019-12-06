@@ -1,3 +1,7 @@
+"""
+A package to manage your python modules
+"""
+
 __version__ = "0.1.0"
 
 import sys
@@ -8,12 +12,15 @@ from types import ModuleType
 from importlib import util
 
 
-class NameBannedFromImport(ImportError): pass
-class NameNotImportable(ImportError): pass
-class NameNotExists(ImportError): pass
+class NameBannedFromImport(ImportError):
+	"""Exception when try to import a banned name"""
+class NameNotImportable(ImportError):
+	"""Exception when name is not importable"""
+class NameNotExists(ImportError):
+	"""Exception when a name does not exist"""
 
 class Module(ModuleType):
-
+	"""A wapper to wrap a module"""
 	def __init__(self, module, base = None):
 		super(Module, self).__init__(module.__name__)
 		# keep properties in one directory to keep namespace clean
@@ -126,8 +133,8 @@ class Module(ModuleType):
 
 		return newmod
 
-class Modkit(object):
-
+class Modkit:
+	"""The Modkit class"""
 	def __init__(self):
 		# whereever imports this module directly
 
@@ -150,6 +157,7 @@ class Modkit(object):
 			sys.modules[module.__name__] = self.module
 
 	def exports(self, *names):
+		"""Defines names to be exportable"""
 		for name in names:
 			if '*' in name or '?' in name or '[' in name:
 				self.module._mkwildexports.add(name)
@@ -160,24 +168,29 @@ class Modkit(object):
 	export = exports
 
 	def ban(self, *names):
+		"""Defines names to be banned"""
 		self.module._mkmeta['banned'] |= set(names)
 		return self
 
 	def unban(self, *names):
+		"""Defines names to be unbanned"""
 		self.module._mkmeta['banned'] -= set(names)
 		return self
 
 	def alias(self, frm, to):
+		"""Defines alias"""
 		self.module._mkalias[to] = frm
 		return self
 
 	def delegate(self, func):
+		"""Defines a delegator when names are imported"""
 		if not callable(func): # pragma: no cover
 			raise TypeError('modkit delegate requires a callable.')
 		self.module._mkenvs['_modkit_delegate'] = func
 		return self
 
 	def call(self, func): # pragma: no cover
+		"""Defines a function when a module a called as a function"""
 		if not callable(func):
 			raise TypeError('modkit call requires a callable.')
 		self.module._mkenvs['_modkit_call'] = func
