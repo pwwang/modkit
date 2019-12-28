@@ -70,6 +70,9 @@ class Module(ModuleType):
 	def _mkalias(self):
 		return self._mkmeta['alias']
 
+	def __dir__(self):
+		return list(self._mkmeta['envs'].keys()) + list(self._mkmeta['alias'].keys())
+
 	def __getattr__(self, name):
 		if name == '__all__':
 			allexports = set(self._mkenvs.keys())

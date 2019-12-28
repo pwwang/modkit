@@ -50,3 +50,8 @@ def testRepr():
 	me2 = me()
 	assert 'baked from' in repr(me2)
 
+def test_dir():
+	from . import moduleAlias
+	assert 'a' in dir(moduleAlias)
+	assert 'abcd' in dir(moduleAlias)
+
