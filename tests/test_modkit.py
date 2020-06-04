@@ -6,7 +6,7 @@ from pathlib import Path
 from subprocess import check_output
 from modkit import Module, UnimportableNameError
 from . import (module, module_empty, module_alias,
-               )
+               submodule)
 from .module import xyz
 
 HERE = Path(__file__).parent.resolve()
@@ -104,3 +104,8 @@ def test_everything_import():
     ])
     assert out == b'12NameError'
 
+def test_submodule():
+    # submodule should not be baked
+    sub2 = submodule()
+    assert sub2.NAME1 is submodule.NAME1
+    assert sub2.NAME3 is submodule.NAME3
