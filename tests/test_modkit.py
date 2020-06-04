@@ -109,3 +109,5 @@ def test_submodule():
     sub2 = submodule()
     assert sub2.NAME1 is submodule.NAME1
     assert sub2.NAME3 is submodule.NAME3
+
+    assert sub2.sub is submodule.sub

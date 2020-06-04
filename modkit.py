@@ -13,7 +13,7 @@ from varname import varname, VarnameRetrievingError
 
 MYSELF = sys.modules[__name__]
 
-class UnimportableNameError(ImportError):
+class UnimportableNameError(ImportError, AttributeError):
     """Exception when name is not importable"""
 
 class Module(ModuleType):
@@ -110,7 +110,7 @@ class Module(ModuleType):
             prevfile, _, _, _, _ = inspect.getframeinfo(
                 inspect.currentframe().f_back
             )
-            if prevfile == '<frozen importlib._bootstrap>':
+            if prevfile.startswith('<frozen importlib._bootstrap'):
                 self.__modkit_meta__['searching'] = False
                 return None
 
