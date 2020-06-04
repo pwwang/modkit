@@ -166,8 +166,17 @@ class Module(ModuleType):
         newmod.__modkit_meta__['bans'] = set(list(
             self.__modkit_meta__['bans']
         ))
-        newmod.__modkit_meta__['delegate'] = self.__modkit_meta__['delegate']
-        newmod.__modkit_meta__['call'] = self.__modkit_meta__['call']
+        # This will not bring environment to the new module
+        #
+        # newmod.__modkit_meta__['delegate'] = self.__modkit_meta__['delegate']
+        # newmod.__modkit_meta__['call'] = self.__modkit_meta__['call']
+        #
+        # Let's use the one copied in the new module itself
+        for val in newmod.__modkit_meta__['envs'].values():
+            if callable(val) and hasattr(val, '_modkit_delegate'):
+                newmod.__modkit_meta__['delegate'] = val
+            elif callable(val) and hasattr(val, '_modkit_call'):
+                newmod.__modkit_meta__['call'] = val
 
         # register
         sys.modules[new_module_name] = newmod
@@ -218,10 +227,16 @@ class Modkit:
     def delegate(self, delegate_func):
         """A decorator to assign the delegate function"""
         self.module.__modkit_meta__['delegate'] = delegate_func
+        # for baking modules to identify it
+        delegate_func._modkit_delegate = True
+        return delegate_func
 
     def call(self, call_func):
         """A decorator to assign the call function"""
         self.module.__modkit_meta__['call'] = call_func
+        # for baking modules to identify it
+        call_func._modkit_call = True
+        return call_func
 
     def ban(self, *args):
         """Set the names to ban, wildcards available"""
