@@ -37,6 +37,13 @@ def test_module_baking():
     assert module.MUTABLE['a'] == 1
     assert module2.MUTABLE['a'] == 2
 
+    module3 = module2()
+    module3.func(3)
+    assert module.MUTABLE['a'] == 1
+    assert module2.MUTABLE['a'] == 2
+    assert module3.MUTABLE['a'] == 3
+
+
 def test_module_wrapping():
     module3 = Module(ast)
     assert '(modkit wrapped)' in repr(module3)

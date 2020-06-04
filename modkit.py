@@ -156,6 +156,16 @@ class Module(ModuleType):
         # wrap it up
         newmod = self.__class__(newmod, self.__modkit_meta__['base'])
 
+        newmod.__modkit_meta__['alias'] = self.__modkit_meta__['alias'].copy()
+        newmod.__modkit_meta__['exports'] = set(list(
+            self.__modkit_meta__['exports']
+        ))
+        newmod.__modkit_meta__['bans'] = set(list(
+            self.__modkit_meta__['bans']
+        ))
+        newmod.__modkit_meta__['delegate'] = self.__modkit_meta__['delegate']
+        newmod.__modkit_meta__['call'] = self.__modkit_meta__['call']
+
         if not deep:
             newmod.__modkit_meta__['envs'].update(self.__modkit_meta__['envs'])
 
