@@ -18,22 +18,21 @@ class UnimportableNameError(ImportError):
 
 class Module(ModuleType):
     """A wapper to wrap a module"""
-    def __init__(self, module, base=None):
+    def __init__(self, module, prev=None):
         """Construct
-        Set up the meta information about the module from
-        the base module.
+        Wrap up the current module baked from the previous module
 
         Args:
-            module (ModuleType): The module we want to wrap up
-            base (ModuleType): The base module in case the module is already
-                               a wrapped module
+            module (ModuleType): Current module to wrap up
+            prev (ModuleType): Previous module which current is baked from
         """
-        super(Module, self).__init__(module.__name__, (base or module).__doc__)
+        super().__init__(module.__name__, (prev or module).__doc__)
         # keep properties in one directory to keep namespace clean
         self.__dict__['__modkit_meta__'] = self.__modkit_meta__ = dict(
-            base=base or module,
+            prev=prev or module,
             module=module,
-            envs=(module.__modkit_meta__['envs'] if isinstance(module, Module)
+            envs=(module.__modkit_meta__['envs']
+                  if isinstance(module, Module)
                   else vars(module)),
             # all names available to export
             all=set(),
@@ -50,25 +49,29 @@ class Module(ModuleType):
             # If we are in the import bootstrapping searching
             # Because this only happens once, we should cache it
             # As it is been detected in __getattr__
-            searching=True
+            searching=True,
+            generation=(module.__modkit_meta__['generation'] + 1
+                        if isinstance(module, Module)
+                        else 1)
         )
 
         self.__dict__['__package__'] = self.__package__ = (
-            self.__modkit_meta__['base'].__package__
+            self.__modkit_meta__['prev'].__package__
         )
         self.__dict__['__path__'] = self.__path__ = []
         self.__dict__['__file__'] = self.__file__ = (
-            self.__modkit_meta__['base'].__file__
+            self.__modkit_meta__['prev'].__file__
         )
 
     def __repr__(self):
-        if self.__modkit_meta__['module'] is self.__modkit_meta__['base']:
+        if not isinstance(self.__modkit_meta__['prev'], Module):
             return repr(self.__modkit_meta__['module']).replace(
                 '<module ', '<module (modkit wrapped) '
             )
         return (f"<module '{self.__modkit_meta__['module'].__name__}' @ "
-                f"{id(self)} baked from "
-                f"'{self.__modkit_meta__['base'].__name__}'>")
+                f"{id(self)} baked (generation: "
+                f"{self.__modkit_meta__['generation']}) from "
+                f"'{self.__modkit_meta__['prev'].__name__}'>")
 
     def __dir__(self):
         """Discussion:
@@ -147,14 +150,14 @@ class Module(ModuleType):
         """Allow to set/update attribute values"""
         self.__modkit_meta__['envs'][name] = value
 
-    def __bake__(self, new_module_name, deep=True):
+    def __bake__(self, new_module_name):
         """make a copy of the module"""
-        spec = self.__modkit_meta__['base'].__spec__
+        spec = self.__modkit_meta__['module'].__spec__
         newmod = util.module_from_spec(spec)
         spec.loader.exec_module(newmod)
         newmod.__name__ = new_module_name
         # wrap it up
-        newmod = self.__class__(newmod, self.__modkit_meta__['base'])
+        newmod = self.__class__(newmod, self)
 
         newmod.__modkit_meta__['alias'] = self.__modkit_meta__['alias'].copy()
         newmod.__modkit_meta__['exports'] = set(list(
@@ -165,9 +168,6 @@ class Module(ModuleType):
         ))
         newmod.__modkit_meta__['delegate'] = self.__modkit_meta__['delegate']
         newmod.__modkit_meta__['call'] = self.__modkit_meta__['call']
-
-        if not deep:
-            newmod.__modkit_meta__['envs'].update(self.__modkit_meta__['envs'])
 
         # register
         sys.modules[new_module_name] = newmod

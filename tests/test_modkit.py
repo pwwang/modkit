@@ -5,7 +5,7 @@ import ast
 from pathlib import Path
 from subprocess import check_output
 from modkit import Module, UnimportableNameError
-from . import (module, module_empty, module_alias, module_shallow_copy,
+from . import (module, module_empty, module_alias,
                )
 from .module import xyz
 
@@ -30,7 +30,7 @@ def test_module_baking():
 
     assert module.IMMUTABLE is module2.IMMUTABLE
 
-    assert 'baked from' in repr(module2)
+    assert 'baked (generation' in repr(module2)
 
     module.func(1)
     module2.func(2)
@@ -54,14 +54,14 @@ def test_dir_all():
         'EXPORT_ABLE2', 'IMMUTABLE', 'MUTABLE', 'THIS_IS_ALSO_BANNED',
         'THIS_IS_ALSO_EXPORTABLE', '__builtins__', '__cached__', '__doc__',
         '__file__', '__loader__', '__modkit_meta__', '__name__', '__package__',
-        '__path__', '__spec__', 'call', 'delegate', 'func', 'modkit'
+        '__path__', '__spec__', 'call', 'delegate', 'func', 'func2', 'modkit'
     ]
 
     assert list(sorted(module.__all__)) == [
         'EXPORT_ABLE', 'EXPORT_ABLE2', 'IMMUTABLE', 'MUTABLE',
         'THIS_IS_ALSO_EXPORTABLE', '__builtins__', '__cached__', '__doc__',
         '__file__', '__loader__', '__modkit_meta__', '__name__', '__package__',
-        '__path__', '__spec__', 'call', 'delegate', 'func', 'modkit'
+        '__path__', '__spec__', 'call', 'delegate', 'func', 'func2', 'modkit'
     ]
 
 def test_getattribute():
@@ -93,16 +93,9 @@ def test_not_calling():
     with pytest.raises(TypeError):
         module_empty()
 
-def test_shallow_copy():
-
-    module_shallow = module_shallow_copy()
-    assert module_shallow.MUTABLE is module_shallow_copy.MUTABLE
-    module_shallow.MUTABLE['a'] = 2
-    assert module_shallow_copy.MUTABLE['a'] == 2
-
 def test_no_assigned_to():
     with pytest.raises(ValueError):
-        module_shallow_copy()
+        module()
 
 def test_everything_import():
     out = check_output([
@@ -110,3 +103,4 @@ def test_everything_import():
         str(HERE.joinpath('../test_import_everything/everything_test.py'))
     ])
     assert out == b'12NameError'
+

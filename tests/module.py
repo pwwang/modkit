@@ -18,10 +18,15 @@ def delegate(name):
 
 @modkit.call
 def call(module, assigned_to):
+    if not assigned_to:
+        raise ValueError()
     return module.__bake__(assigned_to)
 
 def func(a):
     MUTABLE['a'] = a
+
+def func2():
+    return modkit.module.MUTABLE
 
 modkit.export('*')
 modkit.ban('BANNED_*', 'THIS_IS_ALSO_BANNED')
