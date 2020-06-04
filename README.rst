@@ -30,10 +30,7 @@ Install
 
 .. code-block:: shell
 
-   # released version
    pip install modkit
-   # latest version
-   pip intall git+https://github.com/pwwanbg/modkit
 
 Usage
 -----
@@ -45,8 +42,7 @@ Allowing specific names to be imported, even with ``from ... import *``
 
 .. code-block:: python
 
-   from modkit import Modkit
-   modkit = Modkit()
+   from modkit import modkit
    modkit.exports('a', 'b')
    # Now you can specify glob patterns for exports via 0.1.0
    # modkit.exports('p*') # works with dynamic exports
@@ -80,17 +76,16 @@ Banning certain names
 
 .. code-block:: python
 
-   from modkit import Modkit
-   modkit = Modkit()
+   from modkit import modkit
    modkit.ban('a')
    a = 1
 
 .. code-block:: python
 
    import mymodule as mm
-   mm.a # NameBannedFromImport
+   mm.a # UnimportableNameError
 
-   # NameBannedFromImport
+   # UnimportableNameError
    from mymodule import a
 
 Aliasing names
@@ -100,8 +95,8 @@ Aliasing names
 
 .. code-block:: python
 
-   from modkit import Modkit
-   modkit = Modkit()
+   from modkit import modkit
+
    modkit.alias('some_internal_wired_name', 'a')
    some_internal_wired_name = 1
 
@@ -117,9 +112,9 @@ Importing names dynamically
 
 .. code-block:: python
 
-   from modkit import Modkit
-   modkit = Modkit()
+   from modkit import modkit
 
+   @modkit.delegate
    def delegate(name):
        if name == 'a':
            return 1
@@ -128,8 +123,6 @@ Importing names dynamically
        if name == 'c':
            return lambda: 3
 
-   modkit.delegate(delegate)
-
 .. code-block:: python
 
    from mymodule import a, b, c
@@ -137,59 +130,85 @@ Importing names dynamically
    b # 2
    c() # 3
 
-   # NameBannedFromImport
-   from mymodule import delegate
+..
 
-   # if you want to reuse it
-   # mymodule.modkit.unban('delegate')
+   NOTE: since ``0.2.0``\ , you have to use ``decorator`` ``modkit.delegate`` for delegator \
+         ``_modkit_delegate`` is not available any more \
+         Same for ``_modkit_call``\ , do ``@modkit.call`` as well
 
-``modkit`` has reserved delegate function with name ``_modkit_delegate``. With this function defined in your module, you won't have to call ``modkit.delegate``
 
-``mymodule.py``
-
-.. code-block:: python
-
-   import modkit
-   modkit.Modkit()
-
-   def _modkit_delegate(name):
-       if name == 'a':
-           return 1
-       if name == 'b':
-           return 2
-       if name == 'c':
-           return lambda: 3
-
-   # nothing needs to do
-
-Then you are able to import a, b and c from mymodule:
-
-.. code-block:: python
-
-   from mymodule import a, b, c
-
-Generating a new module based on current one
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Using model as a function
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``mymodule.py``
 
 .. code-block:: python
 
-   import modkit
-   modkit.Modkit()
+   from modkit import modkit
 
-   A = 1
-   def _modkit_call(module, a):
-       setattr(module, 'A', 2)
-       return module
+   @modkit.call
+   def call(module, assigned_to, value):
+       print(f'Value {value} is assigned to: {assigned_to or 'nothing'}')
+       return value
+
+   # module and assigned_to are required arguments
+   # you can pass other arbitrary arguments other than value
 
 .. code-block:: python
 
    import mymodule
-   A # 1
-   mymodule2 = mymodule(2)
-   mymodule2.A # 2
-   from mymodule2 import A
-   A # 2
-   from mymodule import A
-   A # 1
+
+   result = mymodule(1)
+   # Value 1 is assigned to: result
+   # result == 1
+
+   mymodule(10)
+   # Value 10 is assigned to: nothing
+
+Baking a module
+^^^^^^^^^^^^^^^
+
+``mymodule.py``
+
+.. code-block:: python
+
+   from modkit import modkit
+
+   data = {}
+
+   @modkit.call
+   def call(module, assigned_to):
+       newmod = module.__bake__(assigned_to)
+       return newmod
+
+.. code-block:: python
+
+   import mymodule
+   mymodule2 = mymodule()
+   mymodule2.data['a'] = 1
+
+   # mymodule.data == {}
+
+Shallow baking
+^^^^^^^^^^^^^^
+
+``mymodule.py``
+
+.. code-block:: python
+
+   from modkit import modkit
+
+   data = {}
+
+   @modkit.call
+   def call(module, assigned_to):
+       newmod = module.__bake__(assigned_to, deep=False)
+       return newmod
+
+.. code-block:: python
+
+   import mymodule
+   mymodule2 = mymodule()
+   mymodule2.data['a'] = 1
+
+   # mymodule.data == {'a': 1}

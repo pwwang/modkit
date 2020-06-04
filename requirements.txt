@@ -1,3 +1,4 @@
 cmdy
 pytest
 pytest-cov
+python-varname

@@ -5,196 +5,257 @@ A package to manage your python modules
 __version__ = "0.1.1"
 
 import sys
-import ast
 import inspect
 import fnmatch
 from types import ModuleType
 from importlib import util
+from varname import varname, VarnameRetrievingError
 
+MYSELF = sys.modules[__name__]
 
-class NameBannedFromImport(ImportError):
-	"""Exception when try to import a banned name"""
-class NameNotImportable(ImportError):
-	"""Exception when name is not importable"""
-class NameNotExists(ImportError):
-	"""Exception when a name does not exist"""
+class UnimportableNameError(ImportError):
+    """Exception when name is not importable"""
 
 class Module(ModuleType):
-	"""A wapper to wrap a module"""
-	def __init__(self, module, base = None):
-		super(Module, self).__init__(module.__name__)
-		# keep properties in one directory to keep namespace clean
-		self._mkmeta = dict(
-			base        = base or module,
-			module      = module,
-			envs        = module._mkenvs if isinstance(module, Module) else vars(module),
-			exports     = set(),
-			wildexports = set(),
-			banned      = {'modkit', 'Modkit', '_modkit_delegate'},
-			alias       = {}
-		)
-		self.__doc__ = self._mkmeta['base'].__doc__
+    """A wapper to wrap a module"""
+    def __init__(self, module, base=None):
+        """Construct
+        Set up the meta information about the module from
+        the base module.
 
-		self._mkenvs['__path__'] = []
-		self._mkenvs['__file__'] = self._mkmeta['base'].__file__
+        Args:
+            module (ModuleType): The module we want to wrap up
+            base (ModuleType): The base module in case the module is already
+                               a wrapped module
+        """
+        super(Module, self).__init__(module.__name__, (base or module).__doc__)
+        # keep properties in one directory to keep namespace clean
+        self.__dict__['__modkit_meta__'] = self.__modkit_meta__ = dict(
+            base=base or module,
+            module=module,
+            envs=(module.__modkit_meta__['envs'] if isinstance(module, Module)
+                  else vars(module)),
+            # all names available to export
+            all=set(),
+            # alias for existing names
+            alias={},
+            # specified exports
+            exports=set(),
+            # specified bans
+            bans=set(),
+            # specified delegates
+            delegate=None,
+            # specified calls
+            call=None,
+            # If we are in the import bootstrapping searching
+            # Because this only happens once, we should cache it
+            # As it is been detected in __getattr__
+            searching=True
+        )
 
-	def __repr__(self):
-		if self._mkmeta['module'] is self._mkmeta['base']:
-			return repr(self._mkmeta['module']).replace('<module ', '<module (modkit wrapped) ')
-		return "<module '%s' @ %s baked from '%s'>" % (
-			self._mkmeta['module'].__name__, id(self), self._mkmeta['base'].__name__)
+        self.__dict__['__package__'] = self.__package__ = (
+            self.__modkit_meta__['base'].__package__
+        )
+        self.__dict__['__path__'] = self.__path__ = []
+        self.__dict__['__file__'] = self.__file__ = (
+            self.__modkit_meta__['base'].__file__
+        )
 
-	@property
-	def _mkbase(self):
-		return self._mkmeta['base']._mkbase \
-			if isinstance(self._mkmeta['base'], Module) \
-			else self._mkmeta['base']
+    def __repr__(self):
+        if self.__modkit_meta__['module'] is self.__modkit_meta__['base']:
+            return repr(self.__modkit_meta__['module']).replace(
+                '<module ', '<module (modkit wrapped) '
+            )
+        return (f"<module '{self.__modkit_meta__['module'].__name__}' @ "
+                f"{id(self)} baked from "
+                f"'{self.__modkit_meta__['base'].__name__}'>")
 
-	@property
-	def _mkenvs(self):
-		return self._mkmeta['envs']
+    def __dir__(self):
+        """Discussion:
+        Should we expose all attribute names?
+        Or we just do __all__
+        """
+        return (list(self.__modkit_meta__['envs']) +
+                list(self.__modkit_meta__['alias']))
 
-	@property
-	def _mkexports(self):
-		return self._mkmeta['exports']
+    @property
+    def __all__(self):
+        if self.__modkit_meta__['all']:
+            return tuple(self.__modkit_meta__['all'])
 
-	@property
-	def _mkwildexports(self):
-		return self._mkmeta['wildexports']
+        all_avail_exports = (set(self.__modkit_meta__['envs']) |
+                             set(self.__modkit_meta__['alias']))
 
-	@property
-	def _mkbanned(self):
-		return self._mkmeta['banned']
+        for pattern in self.__modkit_meta__['exports']:
+            self.__modkit_meta__['all'] |= set(
+                fnmatch.filter(all_avail_exports, pattern)
+            )
 
-	@property
-	def _mkalias(self):
-		return self._mkmeta['alias']
+        if not self.__modkit_meta__['all']:
+            self.__modkit_meta__['all'] = all_avail_exports
 
-	def __dir__(self):
-		return list(self._mkmeta['envs'].keys()) + list(self._mkmeta['alias'].keys())
+        for pattern in self.__modkit_meta__['bans']:
+            self.__modkit_meta__['all'] -= set(
+                fnmatch.filter(all_avail_exports, pattern)
+            )
+        return tuple(self.__modkit_meta__['all'])
 
-	def __getattr__(self, name):
-		if name == '__all__':
-			allexports = set(self._mkenvs.keys())
-			exports    = set()
-			for pattern in self._mkwildexports:
-				exports |= set(fnmatch.filter(allexports, pattern))
-			exports |= self._mkexports
-			return list((exports or allexports) - self._mkbanned)
+    def __getattr__(self, name):
+        # We should skip if we are from the import searching
+        # This enables `from xyz import abc`
+        if self.__modkit_meta__['searching']:
+            prevfile, _, _, _, _ = inspect.getframeinfo(
+                inspect.currentframe().f_back
+            )
+            if prevfile == '<frozen importlib._bootstrap>':
+                self.__modkit_meta__['searching'] = False
+                return None
 
-		rname = self._mkalias.get(name, name)
-		if name in self._mkbanned or rname in self._mkbanned:
-			raise NameBannedFromImport('{}.{}'.format(self.__name__, name))
+        # return the attributes that available with this class
+        # if name in self.__dict__:
+        #     return self.__getattribute__(name)
+        for ban in self.__modkit_meta__['bans']:
+            if fnmatch.fnmatch(name, ban):
+                raise UnimportableNameError(f'Name banned: {name}')
 
-		if name in ('__path__', '__file__'):
-			# should not be banned
-			return self._mkenvs[name]
+        if (name not in self.__all__ and
+                not callable(self.__modkit_meta__['delegate'])):
+            raise UnimportableNameError(f"{self.__name__}.{name}")
 
-		if not self._mkexports and not self._mkwildexports:
-			pass
-		elif self._mkexports and (name in self._mkexports or rname in self._mkexports):
-			pass
-		elif self._mkwildexports and any(fnmatch.filter([name, rname], pattern) \
-			for pattern in self._mkwildexports):
-			pass
-		else:
-			raise NameNotImportable('{}.{}'.format(self.__name__, name))
+        # return the attributes that immediately available in original module
+        if name in self.__modkit_meta__['envs']:
+            return self.__modkit_meta__['envs'][name]
 
-		if name in self._mkenvs or rname in self._mkenvs:
-			return self._mkenvs[rname]
+        # alias
+        if name in self.__modkit_meta__['alias']:
+            source = self.__modkit_meta__['alias'][name]
+            if (source not in self.__modkit_meta__['envs']
+                    and not self.__modkit_meta__['delegate']):
+                raise UnimportableNameError(f"Alias {name} to {source} "
+                                            "is an unimportable name")
 
-		if '_modkit_delegate' in self._mkenvs and callable(self._mkenvs['_modkit_delegate']):
-			return self._mkenvs['_modkit_delegate'](name)
-		raise AttributeError # pragma: no cover
+            return self.__modkit_meta__['envs'][source]
 
-	def __call__(self, *args, **kwargs):
+        # delegate
+        if callable(self.__modkit_meta__['delegate']):
+            # pylint: disable=not-callable
+            return self.__modkit_meta__['delegate'](name)
 
-		try:
-			parent = inspect.stack()[1]
-			try:
-				code   = parent[4][0].strip()
-			except TypeError:
-				# in python REPL
-				raise RuntimeError("modkit is not supposed to run in REPL.")
-			parsed = ast.parse(code)
-			# new module name
-			nmname = parsed.body[0].targets[0].id
-		except AttributeError: # pragma: no cover
-			nmname = self.__name__ + '_baked'
+        raise AttributeError(name) # pragma: no cover
 
-		#sys.modules.pop(nmname, None)
-		# make a copy of the module
-		spec = self._mkbase.__spec__
-		newmod = util.module_from_spec(spec)
-		spec.loader.exec_module(newmod)
-		newmod.__name__ = nmname
-		newmod = self.__class__(newmod, self._mkbase)
-		sys.modules[nmname] = newmod
+    def __setattr__(self, name, value):
+        """Allow to set/update attribute values"""
+        self.__modkit_meta__['envs'][name] = value
 
-		if '_modkit_call' in self._mkenvs and callable(self._modkit_call):
-			self._modkit_call(self._mkmeta['module'], newmod, *args, **kwargs)
+    def __bake__(self, new_module_name, deep=True):
+        """make a copy of the module"""
+        spec = self.__modkit_meta__['base'].__spec__
+        newmod = util.module_from_spec(spec)
+        spec.loader.exec_module(newmod)
+        newmod.__name__ = new_module_name
+        # wrap it up
+        newmod = self.__class__(newmod, self.__modkit_meta__['base'])
 
-		return newmod
+        if not deep:
+            newmod.__modkit_meta__['envs'].update(self.__modkit_meta__['envs'])
+
+        # register
+        sys.modules[new_module_name] = newmod
+
+        return newmod
+
+    def __call__(self, *args, **kwargs):
+        """Open API to do somehting if `module(...)` happens"""
+        if not callable(self.__modkit_meta__['call']):
+            raise TypeError("No function specified for "
+                            "using module as callable")
+
+        try:
+            assigned_to = varname(raise_exc=True)
+        except VarnameRetrievingError:
+            assigned_to = None
+
+         # pylint: disable=not-callable
+        return self.__modkit_meta__['call'](self, assigned_to, *args, **kwargs)
 
 class Modkit:
-	"""The Modkit class"""
-	def __init__(self):
-		# whereever imports this module directly
+    """The Modkit class"""
+    def __new__(cls, module=None):
+        """We are trying to early stop search for `import ... from ...`
+        If `inspect.getmodule(inspect.stack()[3].frame)` is not the right
+        module, that means it's from the search
+        """
+        if not module:
+            module = inspect.getmodule(inspect.stack()[3].frame)
+        if not module:
+            return None
 
-		frame = None
-		for f in inspect.getouterframes(inspect.currentframe())[1:]:
-			if f[0].f_code.co_filename.startswith('<frozen importlib'): # pragma: no cover
-				continue
-			frame = f[0]
-			break
+        inst = super(Modkit, cls).__new__(cls)
+        inst.module = module
+        return inst
 
-		modname = frame.f_locals['__name__']
-		if modname == '__main__': # pragma: no cover
-			raise ImportError('modkit is intended to be used in a module other than a script.')
+    def __init__(self, module=None):
+        """Construct
+        Try to detect where modkit is imported,
+        fetch that module and wrap it up
+        """
+        # module discovered in __new__
+        # pylint: disable=access-member-before-definition
+        module = self.module
+        self.module = Module(module)
+        sys.modules[module.__name__] = self.module
 
-		module = sys.modules[modname] if modname in sys.modules else inspect.getmodule(frame)
-		if isinstance(module, Module):
-			self.module = module
-		else:
-			self.module = Module(module)
-			sys.modules[module.__name__] = self.module
+    def delegate(self, delegate_func):
+        """A decorator to assign the delegate function"""
+        self.module.__modkit_meta__['delegate'] = delegate_func
 
-	def exports(self, *names):
-		"""Defines names to be exportable"""
-		for name in names:
-			if '*' in name or '?' in name or '[' in name:
-				self.module._mkwildexports.add(name)
-			else:
-				self.module._mkexports.add(name)
-		return self
+    def call(self, call_func):
+        """A decorator to assign the call function"""
+        self.module.__modkit_meta__['call'] = call_func
 
-	export = exports
+    def ban(self, *args):
+        """Set the names to ban, wildcards available"""
+        self.module.__modkit_meta__['bans'] |= set(args)
+        # force recalculation
+        self.module.__modkit_meta__['all'] = set()
 
-	def ban(self, *names):
-		"""Defines names to be banned"""
-		self.module._mkmeta['banned'] |= set(names)
-		return self
+    def unban(self, *args):
+        """Unban something in bans"""
+        self.module.__modkit_meta__['bans'] -= set(args)
+        # force recalculation
+        self.module.__modkit_meta__['all'] = set()
 
-	def unban(self, *names):
-		"""Defines names to be unbanned"""
-		self.module._mkmeta['banned'] -= set(names)
-		return self
+    def export(self, *args):
+        """Set the names to export, wildcards available"""
+        self.module.__modkit_meta__['exports'] |= set(args)
+        # force recalculation
+        self.module.__modkit_meta__['all'] = set()
 
-	def alias(self, frm, to):
-		"""Defines alias"""
-		self.module._mkalias[to] = frm
-		return self
+    def alias(self, *args):
+        """Set the alias of existing name
+        It could be 2 arguments: source -> alias
+        Or a dictionary with sources as keys and alias as values
+        """
+        if len(args) == 2:
+            self.module.__modkit_meta__['alias'][args[1]] = args[0]
+        elif len(args) != 1 or not isinstance(args[0], dict):
+            raise ValueError("Expecting a dictionary for aliases")
+        else:
+            for key, val in args[0].items():
+                self.module.__modkit_meta__['alias'][val] = key
+            # force recalculation
+            self.module.__modkit_meta__['all'] = set()
 
-	def delegate(self, func):
-		"""Defines a delegator when names are imported"""
-		if not callable(func): # pragma: no cover
-			raise TypeError('modkit delegate requires a callable.')
-		self.module._mkenvs['_modkit_delegate'] = func
-		return self
+    bans = ban
+    exports = export
 
-	def call(self, func): # pragma: no cover
-		"""Defines a function when a module a called as a function"""
-		if not callable(func):
-			raise TypeError('modkit call requires a callable.')
-		self.module._mkenvs['_modkit_call'] = func
-		return self
+# Wrap myself
+MYSELF_WRAPPED = Modkit(MYSELF)
+
+@MYSELF_WRAPPED.delegate
+def _myself_delegate(name):
+    """Delegate modkit import to MYSELF"""
+    if name == 'modkit':
+        # make sure we return a new
+        return Modkit()
+    raise UnimportableNameError(name)

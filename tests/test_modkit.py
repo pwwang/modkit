@@ -1,57 +1,105 @@
-
 import sys
-from os import path
 import pytest
-from cmdy import python
-python = python.bake(_exe = sys.executable)
+# rarely used in this test, import here for wrapping test
+import ast
+from pathlib import Path
+from subprocess import check_output
+from modkit import Module, UnimportableNameError
+from . import (module, module_empty, module_alias, module_shallow_copy,
+               )
+from .module import xyz
 
-__DIR__ = path.dirname(path.abspath(__file__))
+HERE = Path(__file__).parent.resolve()
 
-def one(pyfile):
+def test_init():
+    import modkit
+    assert sys.modules['tests.module'] is module
+    with pytest.raises(UnimportableNameError):
+        modkit.whatever_nonexisting
 
-	cmd = python(path.join(__DIR__, pyfile))
-	lines = cmd.strip().splitlines()
-	for i in range(0, len(lines), 2):
-		expected = lines[i].split('##', 1)[0].rstrip(' ')[:-10]
-		try:
-			observed = lines[i+1]
-		except IndexError:
-			observed = 'IndexError'
-		assert observed == expected
+def test_module_delegated():
+    assert xyz == 'xyz'
+    assert module.xyz == 'xyz'
+    assert module.mnq == 'mnq'
+    assert module.MUTABLE == {}
 
-def testAlias():
-	one('_testAlias.py')
+def test_module_baking():
+    module2 = module()
+    assert module.MUTABLE == module2.MUTABLE
+    assert id(module.MUTABLE) != id(module2.MUTABLE)
 
-def testBan():
-	one('_testBan.py')
+    assert module.IMMUTABLE is module2.IMMUTABLE
 
-def testCall():
-	one('_testCall.py')
+    assert 'baked from' in repr(module2)
 
-def testExports():
-	one('_testExports.py')
+    module.func(1)
+    module2.func(2)
+    assert module.MUTABLE['a'] == 1
+    assert module2.MUTABLE['a'] == 2
 
-def testModuleAll():
-	one('_testModuleAll.py')
+def test_module_wrapping():
+    module3 = Module(ast)
+    assert '(modkit wrapped)' in repr(module3)
 
-def testAllDelegate():
-	one('_testAllDelegate.py')
+def test_dir_all():
+    assert dir(module) == [
+        'BANNED_NAME1', 'BANNED_NAME2', 'EXPORT_ABLE',
+        'EXPORT_ABLE2', 'IMMUTABLE', 'MUTABLE', 'THIS_IS_ALSO_BANNED',
+        'THIS_IS_ALSO_EXPORTABLE', '__builtins__', '__cached__', '__doc__',
+        '__file__', '__loader__', '__modkit_meta__', '__name__', '__package__',
+        '__path__', '__spec__', 'call', 'delegate', 'func', 'modkit'
+    ]
 
-def testMultiple():
-	one('_testMultiple.py')
+    assert list(sorted(module.__all__)) == [
+        'EXPORT_ABLE', 'EXPORT_ABLE2', 'IMMUTABLE', 'MUTABLE',
+        'THIS_IS_ALSO_EXPORTABLE', '__builtins__', '__cached__', '__doc__',
+        '__file__', '__loader__', '__modkit_meta__', '__name__', '__package__',
+        '__path__', '__spec__', 'call', 'delegate', 'func', 'modkit'
+    ]
 
-def testWildExports():
-	one('_testWildExports.py')
+def test_getattribute():
+    assert 'module.py' in module.__file__
+    assert isinstance(module.__modkit_meta__, dict)
 
-def testRepr():
-	from . import moduleExports as me
-	assert '(modkit wrapped)' in repr(me)
+def test_unimportable_names():
+    with pytest.raises(UnimportableNameError):
+        module.THIS_IS_ALSO_BANNED
 
-	me2 = me()
-	assert 'baked from' in repr(me2)
+    module.modkit.unban('THIS_IS_ALSO_BANNED')
+    assert module.THIS_IS_ALSO_BANNED == 3
 
-def test_dir():
-	from . import moduleAlias
-	assert 'a' in dir(moduleAlias)
-	assert 'abcd' in dir(moduleAlias)
+    with pytest.raises(UnimportableNameError):
+        module_empty.BANNED_NAME1
 
+def test_alias():
+    assert module_alias.NAME1 is module_alias.NAME2
+    assert module_alias.NAME3 is module_alias.NAME4
+    with pytest.raises(UnimportableNameError):
+        module_alias.NAME6
+    with pytest.raises(UnimportableNameError):
+        module_alias.NAME7
+
+    with pytest.raises(ValueError):
+        module_alias.modkit.alias(1)
+
+def test_not_calling():
+    with pytest.raises(TypeError):
+        module_empty()
+
+def test_shallow_copy():
+
+    module_shallow = module_shallow_copy()
+    assert module_shallow.MUTABLE is module_shallow_copy.MUTABLE
+    module_shallow.MUTABLE['a'] = 2
+    assert module_shallow_copy.MUTABLE['a'] == 2
+
+def test_no_assigned_to():
+    with pytest.raises(ValueError):
+        module_shallow_copy()
+
+def test_everything_import():
+    out = check_output([
+        sys.executable,
+        str(HERE.joinpath('../test_import_everything/everything_test.py'))
+    ])
+    assert out == b'12NameError'

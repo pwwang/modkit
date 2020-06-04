@@ -16,6 +16,7 @@ include = "modkit.py"
 
 [tool.poetry.dependencies]
 python = "^3.6"
+python-varname = "*"
 
 [tool.poetry.dev-dependencies]
 pytest = "*"
