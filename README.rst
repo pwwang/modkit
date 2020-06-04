@@ -178,6 +178,7 @@ Baking a module
 
    @modkit.call
    def call(module, assigned_to):
+       # module is deeply baked!
        newmod = module.__bake__(assigned_to)
        return newmod
 
@@ -189,20 +190,25 @@ Baking a module
 
    # mymodule.data == {}
 
-Shallow baking
-^^^^^^^^^^^^^^
+Submodule
+^^^^^^^^^
+
+``submodule.py``
+
+.. code-block:: python
+
+   data = {}
 
 ``mymodule.py``
 
 .. code-block:: python
 
    from modkit import modkit
-
-   data = {}
+   from .submodule import data
 
    @modkit.call
    def call(module, assigned_to):
-       newmod = module.__bake__(assigned_to, deep=False)
+       newmod = module.__bake__(assigned_to)
        return newmod
 
 .. code-block:: python
@@ -211,4 +217,4 @@ Shallow baking
    mymodule2 = mymodule()
    mymodule2.data['a'] = 1
 
-   # mymodule.data == {'a': 1}
+   # mymodule2.data == mymodule.data ==  {'a': 1}
