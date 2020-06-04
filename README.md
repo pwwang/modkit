@@ -81,12 +81,12 @@ from modkit import modkit
 
 @modkit.delegate
 def delegate(name):
-	if name == 'a':
-		return 1
-	if name == 'b':
-		return 2
-	if name == 'c':
-		return lambda: 3
+    if name == 'a':
+        return 1
+    if name == 'b':
+        return 2
+    if name == 'c':
+        return lambda: 3
 
 ```
 
@@ -109,8 +109,8 @@ from modkit import modkit
 
 @modkit.call
 def call(module, assigned_to, value):
-	print(f'Value {value} is assigned to: {assigned_to or 'nothing'}')
-	return value
+    print(f'Value {value} is assigned to: {assigned_to or 'nothing'}')
+    return value
 
 # module and assigned_to are required arguments
 # you can pass other arbitrary arguments other than value
@@ -136,8 +136,9 @@ data = {}
 
 @modkit.call
 def call(module, assigned_to):
-	newmod = module.__bake__(assigned_to)
-	return newmod
+    # module is deeply baked!
+    newmod = module.__bake__(assigned_to)
+    return newmod
 ```
 
 ```python
@@ -148,17 +149,21 @@ mymodule2.data['a'] = 1
 # mymodule.data == {}
 ```
 
-### Shallow baking
+### Submodule
+`submodule.py`
+```python
+data = {}
+```
+
 `mymodule.py`
 ```python
 from modkit import modkit
-
-data = {}
+from .submodule import data
 
 @modkit.call
 def call(module, assigned_to):
-	newmod = module.__bake__(assigned_to, deep=False)
-	return newmod
+    newmod = module.__bake__(assigned_to)
+    return newmod
 ```
 
 ```python
@@ -166,5 +171,5 @@ import mymodule
 mymodule2 = mymodule()
 mymodule2.data['a'] = 1
 
-# mymodule.data == {'a': 1}
+# mymodule2.data == mymodule.data ==  {'a': 1}
 ```
