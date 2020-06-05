@@ -80,7 +80,7 @@ a # 1
 from modkit import modkit
 
 @modkit.delegate
-def delegate(name):
+def delegate(module, name):
     if name == 'a':
         return 1
     if name == 'b':
