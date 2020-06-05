@@ -97,6 +97,12 @@ def test_no_assigned_to():
     with pytest.raises(ValueError):
         module()
 
+def test_from_baked_import():
+    mx1 = module()
+    mx2 = mx1()
+    from mx2 import MUTABLE
+    assert MUTABLE == {}
+
 def test_everything_import():
     out = check_output([
         sys.executable,

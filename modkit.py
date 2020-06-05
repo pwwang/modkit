@@ -55,6 +55,9 @@ class Module(ModuleType):
                         else 1)
         )
 
+        self.__dict__['__spec__'] = self.__spec__ = (
+            self.__modkit_meta__['prev'].__spec__
+        )
         self.__dict__['__package__'] = self.__package__ = (
             self.__modkit_meta__['prev'].__package__
         )
@@ -142,7 +145,7 @@ class Module(ModuleType):
         # delegate
         if callable(self.__modkit_meta__['delegate']):
             # pylint: disable=not-callable
-            return self.__modkit_meta__['delegate'](name)
+            return self.__modkit_meta__['delegate'](self, name)
 
         raise AttributeError(name) # pragma: no cover
 
@@ -278,7 +281,7 @@ class Modkit:
 MYSELF_WRAPPED = Modkit(MYSELF)
 
 @MYSELF_WRAPPED.delegate
-def _myself_delegate(name):
+def _myself_delegate(module, name): # pylint: disable=unused-argument
     """Delegate modkit import to MYSELF"""
     if name == 'modkit':
         # make sure we return a new

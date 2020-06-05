@@ -13,7 +13,7 @@ EXPORT_ABLE2 = 1
 THIS_IS_ALSO_EXPORTABLE = 3
 
 @modkit.delegate
-def delegate(name):
+def delegate(module, name):
     return name
 
 @modkit.call
