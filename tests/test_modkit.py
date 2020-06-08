@@ -82,12 +82,17 @@ def test_alias():
     assert module_alias.NAME1 is module_alias.NAME2
     assert module_alias.NAME3 is module_alias.NAME4
     with pytest.raises(UnimportableNameError):
+        module_alias.NAME5
+    with pytest.raises(UnimportableNameError):
         module_alias.NAME6
     with pytest.raises(UnimportableNameError):
         module_alias.NAME7
 
     with pytest.raises(ValueError):
         module_alias.modkit.alias(1)
+
+    with pytest.raises(ValueError):
+        module_alias.modkit.alias('NAME8', 'NAME1', NAME8='NAME3')
 
 def test_not_calling():
     with pytest.raises(TypeError):
@@ -117,3 +122,19 @@ def test_submodule():
     assert sub2.NAME3 is submodule.NAME3
 
     assert sub2.sub is submodule.sub
+
+def test_getsetitem():
+    module_empty['foo'] = 1
+    assert module_empty['foo'] == 1
+    assert 'foo' in module_empty
+
+    del module_empty['foo']
+    assert 'foo' not in module_empty
+
+    with pytest.raises(UnimportableNameError):
+        module_empty.foo
+    with pytest.raises(UnimportableNameError):
+        module_empty['foo']
+
+    with pytest.raises(AttributeError):
+        del module_empty['foo']

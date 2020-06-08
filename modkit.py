@@ -151,7 +151,25 @@ class Module(ModuleType):
 
     def __setattr__(self, name, value):
         """Allow to set/update attribute values"""
+        # supposed attributes added on the fly are open
+        # force __all__ to be recalculated
+        self.__modkit_meta__['all'] = set()
         self.__modkit_meta__['envs'][name] = value
+
+    def __delattr__(self, name):
+        # force __all__ to be recalculated
+        self.__modkit_meta__['all'] = set()
+        try:
+            del self.__modkit_meta__['envs'][name]
+        except KeyError:
+            raise AttributeError(name) from None
+
+    __getitem__ = __getattr__
+    __setitem__ = __setattr__
+    __delitem__ = __delattr__
+
+    def __contains__(self, name):
+        return  name in self.__all__
 
     def __bake__(self, new_module_name):
         """make a copy of the module"""
@@ -259,20 +277,34 @@ class Modkit:
         # force recalculation
         self.module.__modkit_meta__['all'] = set()
 
-    def alias(self, *args):
+    def alias(self, *args, **kwargs):
         """Set the alias of existing name
-        It could be 2 arguments: source -> alias
-        Or a dictionary with sources as keys and alias as values
+        It could be 2 arguments: alias -> source
+        Or a dictionary with aliases as keys and sources as values
+        Or kwargs with aliases as keys and sources as values
+
+        Examples:
+            >>> modkit.alias('attr_alias', 'attr')
+            >>> modkit.alias({'attr_alias': 'attr'})
+            >>> modkit.alias(attr_alias='attr')
         """
+        # alias => souce
+        aliases = {}
         if len(args) == 2:
-            self.module.__modkit_meta__['alias'][args[1]] = args[0]
-        elif len(args) != 1 or not isinstance(args[0], dict):
+            aliases[args[0]] = args[1]
+        elif len(args) == 1 and isinstance(args[0], dict):
+            aliases = args[0]
+        elif args:
             raise ValueError("Expecting a dictionary for aliases")
-        else:
-            for key, val in args[0].items():
-                self.module.__modkit_meta__['alias'][val] = key
-            # force recalculation
-            self.module.__modkit_meta__['all'] = set()
+
+        for alias, source in kwargs.items():
+            if alias in aliases:
+                raise ValueError(f'Alias {alias} mapped to multiple source.')
+            aliases[alias] = source
+
+        self.module.__modkit_meta__['alias'].update(aliases)
+        # force recalculation
+        self.module.__modkit_meta__['all'] = set()
 
     bans = ban
     exports = export
