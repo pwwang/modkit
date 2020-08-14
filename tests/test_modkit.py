@@ -6,7 +6,7 @@ from pathlib import Path
 from subprocess import check_output
 from modkit import Module, UnimportableNameError
 from . import (module, module_empty, module_alias,
-               submodule)
+               submodule, module_postinit)
 from .module import xyz
 
 HERE = Path(__file__).parent.resolve()
@@ -138,3 +138,6 @@ def test_getsetitem():
 
     with pytest.raises(AttributeError):
         del module_empty['foo']
+
+def test_postinit():
+    assert module_postinit.a == 1

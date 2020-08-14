@@ -36,8 +36,8 @@ class Module(ModuleType):
                   else vars(module)),
             # all names available to export
             all=set(),
-            # alias for existing names
-            alias={},
+            # aliases for existing names
+            aliases={},
             # specified exports
             exports=set(),
             # specified bans
@@ -82,7 +82,7 @@ class Module(ModuleType):
         Or we just do __all__
         """
         return (list(self.__modkit_meta__['envs']) +
-                list(self.__modkit_meta__['alias']))
+                list(self.__modkit_meta__['aliases']))
 
     @property
     def __all__(self):
@@ -90,7 +90,7 @@ class Module(ModuleType):
             return tuple(self.__modkit_meta__['all'])
 
         all_avail_exports = (set(self.__modkit_meta__['envs']) |
-                             set(self.__modkit_meta__['alias']))
+                             set(self.__modkit_meta__['aliases']))
 
         for pattern in self.__modkit_meta__['exports']:
             self.__modkit_meta__['all'] |= set(
@@ -110,12 +110,15 @@ class Module(ModuleType):
         # We should skip if we are from the import searching
         # This enables `from xyz import abc`
         if self.__modkit_meta__['searching']:
-            prevfile, _, _, _, _ = inspect.getframeinfo(
-                inspect.currentframe().f_back
-            )
-            if prevfile.startswith('<frozen importlib._bootstrap'):
+            try:
+                prevfile, _, _, _, _ = inspect.getframeinfo(
+                    inspect.currentframe().f_back
+                )
+                if prevfile.startswith('<frozen importlib._bootstrap'):
+                    self.__modkit_meta__['searching'] = False
+                    return None
+            finally:
                 self.__modkit_meta__['searching'] = False
-                return None
 
         # return the attributes that available with this class
         # if name in self.__dict__:
@@ -133,8 +136,8 @@ class Module(ModuleType):
             return self.__modkit_meta__['envs'][name]
 
         # alias
-        if name in self.__modkit_meta__['alias']:
-            source = self.__modkit_meta__['alias'][name]
+        if name in self.__modkit_meta__['aliases']:
+            source = self.__modkit_meta__['aliases'][name]
             if (source not in self.__modkit_meta__['envs']
                     and not self.__modkit_meta__['delegate']):
                 raise UnimportableNameError(f"Alias {name} to {source} "
@@ -180,7 +183,9 @@ class Module(ModuleType):
         # wrap it up
         newmod = self.__class__(newmod, self)
 
-        newmod.__modkit_meta__['alias'] = self.__modkit_meta__['alias'].copy()
+        newmod.__modkit_meta__['aliases'] = self.__modkit_meta__[
+            'aliases'
+        ].copy()
         newmod.__modkit_meta__['exports'] = set(list(
             self.__modkit_meta__['exports']
         ))
@@ -259,6 +264,11 @@ class Modkit:
         call_func._modkit_call = True
         return call_func
 
+    def postinit(self, init_func):
+        """A hook for actions after a module is initialized"""
+        init_func(self.module)
+        return init_func
+
     def ban(self, *args):
         """Set the names to ban, wildcards available"""
         self.module.__modkit_meta__['bans'] |= set(args)
@@ -302,10 +312,11 @@ class Modkit:
                 raise ValueError(f'Alias {alias} mapped to multiple source.')
             aliases[alias] = source
 
-        self.module.__modkit_meta__['alias'].update(aliases)
+        self.module.__modkit_meta__['aliases'].update(aliases)
         # force recalculation
         self.module.__modkit_meta__['all'] = set()
 
+    aliases = alias
     bans = ban
     exports = export
 
