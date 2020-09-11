@@ -2,6 +2,7 @@ import sys
 import pytest
 # rarely used in this test, import here for wrapping test
 import ast
+import importlib.util
 from pathlib import Path
 from subprocess import check_output
 from modkit import Module, UnimportableNameError
@@ -10,6 +11,14 @@ from . import (module, module_empty, module_alias,
 from .module import xyz
 
 HERE = Path(__file__).parent.resolve()
+
+def _import_from_path(path):
+    spec = importlib.util.spec_from_file_location(
+        path.stem, path
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 def test_init():
     import modkit
@@ -141,3 +150,7 @@ def test_getsetitem():
 
 def test_postinit():
     assert module_postinit.a == 1
+
+def test_import_from_path():
+    module = _import_from_path(HERE / 'module.py')
+    assert module.IMMUTABLE == 1
