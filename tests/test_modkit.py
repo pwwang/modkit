@@ -12,14 +12,6 @@ from .module import xyz
 
 HERE = Path(__file__).parent.resolve()
 
-def _import_from_path(path):
-    spec = importlib.util.spec_from_file_location(
-        path.stem, path
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
 def test_init():
     import modkit
     assert sys.modules['tests.module'] is module
@@ -150,7 +142,3 @@ def test_getsetitem():
 
 def test_postinit():
     assert module_postinit.a == 1
-
-def test_import_from_path():
-    module = _import_from_path(HERE / 'module.py')
-    assert module.IMMUTABLE == 1
