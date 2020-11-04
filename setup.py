@@ -21,7 +21,7 @@ if os.path.exists(readme_path):
 setup(
     long_description=readme,
     name='modkit',
-    version='0.2.2',
+    version='0.2.3',
     description='A package to manage your python modules.',
     python_requires='==3.*,>=3.6.0',
     project_urls={
@@ -34,6 +34,6 @@ setup(
     packages=['test_import_everything'],
     package_dir={"": "."},
     package_data={},
-    install_requires=['python-varname'],
+    install_requires=['varname'],
     extras_require={"dev": ["cmdy", "pytest", "pytest-cov"]},
 )

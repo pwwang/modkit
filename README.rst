@@ -97,7 +97,7 @@ Aliasing names
 
    from modkit import modkit
 
-   modkit.alias('some_internal_wired_name', 'a')
+   modkit.alias(a='some_internal_wired_name')
    some_internal_wired_name = 1
 
 .. code-block:: python

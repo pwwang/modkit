@@ -98,3 +98,5 @@ export/
 *.queue.txt
 *.bak
 site/
+
+.history/

@@ -1,4 +1,4 @@
 cmdy
 pytest
 pytest-cov
-python-varname
+varname
