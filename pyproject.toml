@@ -4,15 +4,13 @@ build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "modkit"
-version = "0.2.3"
-description = "A package to manage your python modules."
+version = "0.3.0"
+description = "Tweak your modules the way you want"
 authors = [ "pwwang <pwwang@pwwang.com>",]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/pwwang/modkit"
 repository = "https://github.com/pwwang/modkit"
-[[tool.poetry.packages]]
-include = "modkit.py"
 
 [tool.poetry.dependencies]
 python = "^3.6"
@@ -21,4 +19,3 @@ varname = "*"
 [tool.poetry.dev-dependencies]
 pytest = "*"
 pytest-cov = "*"
-cmdy = "*"

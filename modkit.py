@@ -1,332 +1,175 @@
-"""
-A package to manage your python modules
-"""
-
-__version__ = "0.2.3"
-
+"""modkit: Tweak your modules the way you want"""
 import sys
 import inspect
-import fnmatch
+from copy import deepcopy
 from types import ModuleType
-from importlib import util
-from varname import varname, VarnameRetrievingError
+from typing import Any, Optional
 
-MYSELF = sys.modules[__name__]
+from varname import varname
 
-class UnimportableNameError(ImportError, AttributeError):
-    """Exception when name is not importable"""
+__version__ = '0.3.0'
+__all__ = ('install', 'bake', 'submodule')
+
+def _get_module() -> Optional[ModuleType]:
+    """Try to traverse the frames to get the module"""
+    frame = None
+    i = 2
+    while True:
+        frame = sys._getframe(i)
+        i += 1
+        modfile = inspect.getframeinfo(frame).filename
+        if modfile.startswith('<frozen'): # pragma: no cover
+            continue
+        break
+
+    return inspect.getmodule(frame)
 
 class Module(ModuleType):
-    """A wapper to wrap a module"""
-    def __init__(self, module, prev=None):
-        """Construct
-        Wrap up the current module baked from the previous module
+    """The module wrapper class to wrap the original module
+    One can access the original module by module.__origin__
+    """
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.__origin__ = None
+
+    def _from_origin(self, module: ModuleType) -> None:
+        """Update the dict from the original module"""
+        self.__origin__ = module
+        self.__dict__.update(module.__dict__)
+
+    def __getitem__(self, name: Any) -> Any:
+        """Allow to subscribe a module if __getitem__ is defined in the module
 
         Args:
-            module (ModuleType): Current module to wrap up
-            prev (ModuleType): Previous module which current is baked from
+            name: The name of the item
+
+        Raises:
+            TypeError: if __getitem__ is not defined in the module
         """
-        super().__init__(module.__name__, (prev or module).__doc__)
-        # keep properties in one directory to keep namespace clean
-        self.__dict__['__modkit_meta__'] = self.__modkit_meta__ = dict(
-            prev=prev or module,
-            module=module,
-            envs=(module.__modkit_meta__['envs']
-                  if isinstance(module, Module)
-                  else vars(module)),
-            # all names available to export
-            all=set(),
-            # aliases for existing names
-            aliases={},
-            # specified exports
-            exports=set(),
-            # specified bans
-            bans=set(),
-            # specified delegates
-            delegate=None,
-            # specified calls
-            call=None,
-            # If we are in the import bootstrapping searching
-            # Because this only happens once, we should cache it
-            # As it is been detected in __getattr__
-            searching=True,
-            generation=(module.__modkit_meta__['generation'] + 1
-                        if isinstance(module, Module)
-                        else 1)
-        )
+        if '__getitem__' not in self.__dict__:
+            raise TypeError("'module' object is not subscriptable")
+        return self.__dict__['__getitem__'](name)
 
-        self.__dict__['__spec__'] = self.__spec__ = (
-            self.__modkit_meta__['prev'].__spec__
-        )
-        self.__dict__['__package__'] = self.__package__ = (
-            self.__modkit_meta__['prev'].__package__
-        )
-        self.__dict__['__path__'] = self.__path__ = []
-        self.__dict__['__file__'] = self.__file__ = (
-            self.__modkit_meta__['prev'].__file__
-        )
+    def __getattr__(self, name: str) -> Any:
+        """Allow to getattr if __getattr__ is defined in the module
 
-    def __repr__(self):
-        if not isinstance(self.__modkit_meta__['prev'], Module):
-            return repr(self.__modkit_meta__['module']).replace(
-                '<module ', '<module (modkit wrapped) '
+        Note: if you have submodules, module.submodule will not bypass this
+        function, so you have to manually import the submodules here.
+
+        submodule is provided to tell if a submodule is loaded successfully or
+        not.
+
+        For example:
+        >>> def __getattr__(name):
+        >>>     submod = submodule('sub')
+        >>>     if submod:
+        >>>         # if submodule is loaded successfully
+        >>>         return submod
+        >>>     # otherwise do the tweak
+        >>>     return name.upper()
+
+        Args:
+            name: The name of the attribute
+
+        Raises:
+            AttributeError: if __getattr__ is not defined in the module
+        """
+        if '__getattr__' not in self.__dict__:
+            raise AttributeError(
+                f"module '{self.__name__}' has no attribute '{name}'"
             )
-        return (f"<module '{self.__modkit_meta__['module'].__name__}' @ "
-                f"{id(self)} baked (generation: "
-                f"{self.__modkit_meta__['generation']}) from "
-                f"'{self.__modkit_meta__['prev'].__name__}'>")
+        # python3.7+ has builtin __getattr__ support
+        return self.__dict__['__getattr__'](name) # pragma: no cover
 
-    def __dir__(self):
-        """Discussion:
-        Should we expose all attribute names?
-        Or we just do __all__
+    def __call__(self, *args, **kwargs) -> Any:
+        """Make the module callable
+
+        Args:
+            *args: Arugments for __call__ defined in the module
+            **kwargs: Keyword arguments for __call__ defined in the module
+
+        Returns:
+            Anything returned from __call__ defined in the module
         """
-        return (list(self.__modkit_meta__['envs']) +
-                list(self.__modkit_meta__['aliases']))
+        if '__call__' not in self.__dict__:
+            raise TypeError("'module' object is not callable")
+        return self.__dict__['__call__'](*args, **kwargs)
 
-    @property
-    def __all__(self):
-        if self.__modkit_meta__['all']:
-            return tuple(self.__modkit_meta__['all'])
+    def __repr__(self) -> str:
+        """Repr for the wrapped module"""
+        return repr(self.__origin__).replace(
+            repr(self.__origin__.__name__),
+            repr(self.__name__)
+        )[:-1] + ' (wrapped by modkit)>'
 
-        all_avail_exports = (set(self.__modkit_meta__['envs']) |
-                             set(self.__modkit_meta__['aliases']))
+def install(name: Optional[str] = None) -> None:
+    """Install the modkit to wrap up the module
 
-        for pattern in self.__modkit_meta__['exports']:
-            self.__modkit_meta__['all'] |= set(
-                fnmatch.filter(all_avail_exports, pattern)
-            )
+    Args:
+        name: The name of the module. You would like to do `install(__name__)`
+            But if you are lazy, you can do `install()`. The module will
+            be inferred by traversing the frames.
+    """
+    orig_module = sys.modules[name] if name else _get_module()
 
-        if not self.__modkit_meta__['all']:
-            self.__modkit_meta__['all'] = all_avail_exports
+    wrapped = Module(orig_module.__name__)
+    wrapped._from_origin(orig_module)
+    sys.modules[orig_module.__name__] = wrapped
 
-        for pattern in self.__modkit_meta__['bans']:
-            self.__modkit_meta__['all'] -= set(
-                fnmatch.filter(all_avail_exports, pattern)
-            )
-        return tuple(self.__modkit_meta__['all'])
+def bake(baked_name: Optional[str] = None,
+         deep: bool = False,
+         name: Optional[str] = None) -> ModuleType:
+    """Bake the module
 
-    def __getattr__(self, name):
-        # We should skip if we are from the import searching
-        # This enables `from xyz import abc`
-        if self.__modkit_meta__['searching']:
-            try:
-                prevfile, _, _, _, _ = inspect.getframeinfo(
-                    inspect.currentframe().f_back
-                )
-                if prevfile.startswith('<frozen importlib._bootstrap'):
-                    self.__modkit_meta__['searching'] = False
-                    return None
-            finally:
-                self.__modkit_meta__['searching'] = False
+    Args:
+        baked_name: The name for the baked module. If not provided, will
+            be inferred by varname. For example: `m = bake()` then the new
+            module name will be `m`
+        deep: Whether do a deep copy of the __dict__ or not.
+            Note, modules and `__builtins__` are not deep copied even when
+            we do deep copy
+        name: Current module name. If not provided, will traverse the frame
+            to get the module.
 
-        # return the attributes that available with this class
-        # if name in self.__dict__:
-        #     return self.__getattribute__(name)
-        for ban in self.__modkit_meta__['bans']:
-            if fnmatch.fnmatch(name, ban):
-                raise UnimportableNameError(f'Name banned: {name}')
+    Returns:
+        The baked module
+    """
+    baked_name = baked_name or varname(raise_exc=False)
+    if not baked_name:
+        raise ValueError('A name is required to bake a module')
 
-        if (name not in self.__all__ and
-                not callable(self.__modkit_meta__['delegate'])):
-            raise UnimportableNameError(f"{self.__name__}.{name}")
+    module = sys.modules[name] if name else _get_module()
+    baked_module = Module(baked_name)
+    if deep:
+        for key, val in module.__dict__.items():
+            if key == '__builtins__' or isinstance(val, ModuleType):
+                continue
+            baked_module.__dict__[key] = deepcopy(val)
+    else:
+        baked_module.__dict__.update(module.__dict__)
+    # pylint: disable=attribute-defined-outside-init
+    baked_module.__name__ = baked_name
+    sys.modules[baked_name] = baked_module
+    return baked_module
 
-        # return the attributes that immediately available in original module
-        if name in self.__modkit_meta__['envs']:
-            return self.__modkit_meta__['envs'][name]
+def submodule(submod_name, name=None) -> Optional[ModuleType]:
+    """Try importing the submodule of current wrapped module
 
-        # alias
-        if name in self.__modkit_meta__['aliases']:
-            source = self.__modkit_meta__['aliases'][name]
-            if (source not in self.__modkit_meta__['envs']
-                    and not self.__modkit_meta__['delegate']):
-                raise UnimportableNameError(f"Alias {name} to {source} "
-                                            "is an unimportable name")
+    Note that no ImportError will be raised if failed to import; `None` will
+    be returned instead.
 
-            return self.__modkit_meta__['envs'][source]
-
-        # delegate
-        if callable(self.__modkit_meta__['delegate']):
-            # pylint: disable=not-callable
-            return self.__modkit_meta__['delegate'](self, name)
-
-        raise AttributeError(name) # pragma: no cover
-
-    def __setattr__(self, name, value):
-        """Allow to set/update attribute values"""
-        # supposed attributes added on the fly are open
-        # force __all__ to be recalculated
-        self.__modkit_meta__['all'] = set()
-        self.__modkit_meta__['envs'][name] = value
-
-    def __delattr__(self, name):
-        # force __all__ to be recalculated
-        self.__modkit_meta__['all'] = set()
-        try:
-            del self.__modkit_meta__['envs'][name]
-        except KeyError:
-            raise AttributeError(name) from None
-
-    __getitem__ = __getattr__
-    __setitem__ = __setattr__
-    __delitem__ = __delattr__
-
-    def __contains__(self, name):
-        return  name in self.__all__
-
-    def __bake__(self, new_module_name):
-        """make a copy of the module"""
-        spec = self.__modkit_meta__['module'].__spec__
-        newmod = util.module_from_spec(spec)
-        spec.loader.exec_module(newmod)
-        newmod.__name__ = new_module_name
-        # wrap it up
-        newmod = self.__class__(newmod, self)
-
-        newmod.__modkit_meta__['aliases'] = self.__modkit_meta__[
-            'aliases'
-        ].copy()
-        newmod.__modkit_meta__['exports'] = set(list(
-            self.__modkit_meta__['exports']
-        ))
-        newmod.__modkit_meta__['bans'] = set(list(
-            self.__modkit_meta__['bans']
-        ))
-        # This will not bring environment to the new module
-        #
-        # newmod.__modkit_meta__['delegate'] = self.__modkit_meta__['delegate']
-        # newmod.__modkit_meta__['call'] = self.__modkit_meta__['call']
-        #
-        # Let's use the one copied in the new module itself
-        for val in newmod.__modkit_meta__['envs'].values():
-            if callable(val) and hasattr(val, '_modkit_delegate'):
-                newmod.__modkit_meta__['delegate'] = val
-            elif callable(val) and hasattr(val, '_modkit_call'):
-                newmod.__modkit_meta__['call'] = val
-
-        # register
-        sys.modules[new_module_name] = newmod
-
-        return newmod
-
-    def __call__(self, *args, **kwargs):
-        """Open API to do somehting if `module(...)` happens"""
-        if not callable(self.__modkit_meta__['call']):
-            raise TypeError("No function specified for "
-                            "using module as callable")
-
-        try:
-            assigned_to = varname(raise_exc=True)
-        except VarnameRetrievingError:
-            assigned_to = None
-
-         # pylint: disable=not-callable
-        return self.__modkit_meta__['call'](self, assigned_to, *args, **kwargs)
-
-class Modkit:
-    """The Modkit class"""
-    def __new__(cls, module=None):
-        """We are trying to early stop search for `import ... from ...`
-        If `inspect.getmodule(inspect.stack()[3].frame)` is not the right
-        module, that means it's from the search
-        """
-        if not module:
-            module = inspect.getmodule(inspect.stack()[3].frame)
-        if not module:
-            return None
-
-        inst = super(Modkit, cls).__new__(cls)
-        inst.module = module
-        return inst
-
-    def __init__(self, module=None):
-        """Construct
-        Try to detect where modkit is imported,
-        fetch that module and wrap it up
-        """
-        # module discovered in __new__
-        # pylint: disable=access-member-before-definition
-        module = self.module
-        self.module = Module(module)
-        sys.modules[module.__name__] = self.module
-
-    def delegate(self, delegate_func):
-        """A decorator to assign the delegate function"""
-        self.module.__modkit_meta__['delegate'] = delegate_func
-        # for baking modules to identify it
-        delegate_func._modkit_delegate = True
-        return delegate_func
-
-    def call(self, call_func):
-        """A decorator to assign the call function"""
-        self.module.__modkit_meta__['call'] = call_func
-        # for baking modules to identify it
-        call_func._modkit_call = True
-        return call_func
-
-    def postinit(self, init_func):
-        """A hook for actions after a module is initialized"""
-        init_func(self.module)
-        return init_func
-
-    def ban(self, *args):
-        """Set the names to ban, wildcards available"""
-        self.module.__modkit_meta__['bans'] |= set(args)
-        # force recalculation
-        self.module.__modkit_meta__['all'] = set()
-
-    def unban(self, *args):
-        """Unban something in bans"""
-        self.module.__modkit_meta__['bans'] -= set(args)
-        # force recalculation
-        self.module.__modkit_meta__['all'] = set()
-
-    def export(self, *args):
-        """Set the names to export, wildcards available"""
-        self.module.__modkit_meta__['exports'] |= set(args)
-        # force recalculation
-        self.module.__modkit_meta__['all'] = set()
-
-    def alias(self, *args, **kwargs):
-        """Set the alias of existing name
-        It could be 2 arguments: alias -> source
-        Or a dictionary with aliases as keys and sources as values
-        Or kwargs with aliases as keys and sources as values
-
-        Examples:
-            >>> modkit.alias('attr_alias', 'attr')
-            >>> modkit.alias({'attr_alias': 'attr'})
-            >>> modkit.alias(attr_alias='attr')
-        """
-        # alias => souce
-        aliases = {}
-        if len(args) == 2:
-            aliases[args[0]] = args[1]
-        elif len(args) == 1 and isinstance(args[0], dict):
-            aliases = args[0]
-        elif args:
-            raise ValueError("Expecting a dictionary for aliases")
-
-        for alias, source in kwargs.items():
-            if alias in aliases:
-                raise ValueError(f'Alias {alias} mapped to multiple source.')
-            aliases[alias] = source
-
-        self.module.__modkit_meta__['aliases'].update(aliases)
-        # force recalculation
-        self.module.__modkit_meta__['all'] = set()
-
-    aliases = alias
-    bans = ban
-    exports = export
-
-# Wrap myself
-MYSELF_WRAPPED = Modkit(MYSELF)
-
-@MYSELF_WRAPPED.delegate
-def _myself_delegate(module, name): # pylint: disable=unused-argument
-    """Delegate modkit import to MYSELF"""
-    if name == 'modkit':
-        # make sure we return a new
-        return Modkit()
-    raise UnimportableNameError(name)
+    Args:
+        submod_name: Name of the submodule.
+        name: Current module name. If not provided, will traverse the frame
+            to get the module.
+    """
+    module = sys.modules[name] if name else _get_module()
+    try:
+        mod = __import__(f'{module.__name__}.{submod_name}')
+    except ImportError:
+        return None
+    else:
+        names = module.__name__.split('.') + [submod_name]
+        for nam in names[1:]:
+            mod = getattr(mod, nam)
+        return mod

@@ -1,0 +1,4 @@
+from modkit import *
+
+
+install()
