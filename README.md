@@ -55,7 +55,64 @@ You can make a copy of your module with modkit easilyl
 ```python
 from modkit import bake
 
+d = {}
 
+def __call__():
+    module2 = bake()
+    return module2
+    # or return bake('module2')
 ```
 
+```python
+import module
 
+m2 = module()
+m2
+# <module 'module2' from './module.py' (wrapped by modkit)>
+m2.__name__ # 'module2
+m2.d['a'] = 1
+# This is a shalow copy
+module.d['a'] # 1
+```
+
+You can also do a deep copy, while using `bake`: `module2 = bake(deep=True)`. Then if `m2.d is not module.d`.
+
+Note that `__builtins__` and other modules in `module` are not copied.
+
+### Submodules
+
+Say we have following structure:
+```
+|- module
+   |- __init__.py
+   |- sub.py
+```
+If `__getattr__` is defined in `__init__.py`, when we do:
+```python
+from module import sub
+# or
+# import module
+# module.sub
+```
+`__getattr__` will first handle this, meaning the `sub` module will not be imported as expected. You have to do it inside `__getattr__`:
+
+`modkit` has a helper function `submodule`, which tries to import the submodule under current one.
+
+```python
+from modkit import install, submodule
+def __getattr__(name):
+    submod = submodule(name)
+    if submod:
+        # submodule imported
+        return submod
+    # other stuff you want to do with name
+    # or raise error
+
+install()
+```
+
+Then `from module import sub` or `module.sub` will work as expected.
+
+Note that `submodule` will not raise `ImportError`. If import fails, it will return `None`.
+
+The loader and spec have not being changed while a module is baked. So, we can also import submodules from a baked module.
