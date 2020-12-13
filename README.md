@@ -52,7 +52,7 @@ You can make a copy of your module with modkit easily.
 `module.py`
 
 ```python
-from modkit import bake
+from modkit import install, bake
 
 d = {}
 
@@ -60,6 +60,8 @@ def __call__():
     module2 = bake()
     return module2
     # or return bake('module2')
+
+install()
 ```
 
 ```python
