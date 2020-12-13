@@ -23,198 +23,123 @@ modkit
    :alt: Travis building
 
 
-A package to manage your python modules
+Tweak your modules the way you want
 
 Install
 -------
 
 .. code-block:: shell
 
-   pip install modkit
+   pip install -U modkit
 
 Usage
 -----
 
-Allowing specific names to be imported, even with ``from ... import *``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-``mymodule.py``\ :
+``module.py``
 
 .. code-block:: python
 
-   from modkit import modkit
-   modkit.exports('a', 'b')
-   # Now you can specify glob patterns for exports via 0.1.0
-   # modkit.exports('p*') # works with dynamic exports
+   import modkit
+
    a = 1
-   b = 2
-   c = 3
+   d = {}
 
-Try to import this module:
+   def __getattr__(name):
+       # we have this supported with python3.7+
+       # but with modkit, you can do it with python3.6+
+       return name.upper()
 
-.. code-block:: python
+   def __getitem__(name):
+       return name.lower()
 
-   import mymodule as mm
-   mm.a # 1
-   mm.b # 2
-   mm.c # NameNotImportable
+   def __call__(name):
+       return name * 2
 
-.. code-block:: python
-
-   from mymodule import *
-   a # 1
-   b # 2
-   c # NameError
-
-   # NameNotImportable
-   from mymodule import c
-
-Banning certain names
-^^^^^^^^^^^^^^^^^^^^^
-
-``mymodule.py``\ :
+   modkit.install()
 
 .. code-block:: python
 
-   from modkit import modkit
-   modkit.ban('a')
-   a = 1
+   import module
+
+   module.a # 1
+   module.b # B
+   module.d # {}
+   module['c'] # C
+   module('e') # ee
+
+Bake a module
+^^^^^^^^^^^^^
+
+You can make a copy of your module with modkit easilyl
+
+``module.py``
 
 .. code-block:: python
 
-   import mymodule as mm
-   mm.a # UnimportableNameError
+   from modkit import bake
 
-   # UnimportableNameError
-   from mymodule import a
+   d = {}
 
-Aliasing names
-^^^^^^^^^^^^^^
-
-``mymodule.py``\ :
+   def __call__():
+       module2 = bake()
+       return module2
+       # or return bake('module2')
 
 .. code-block:: python
 
-   from modkit import modkit
+   import module
 
-   modkit.alias(a='some_internal_wired_name')
-   some_internal_wired_name = 1
+   m2 = module()
+   m2
+   # <module 'module2' from './module.py' (wrapped by modkit)>
+   m2.__name__ # 'module2
+   m2.d['a'] = 1
+   # This is a shalow copy
+   module.d['a'] # 1
 
-.. code-block:: python
+You can also do a deep copy, while using ``bake``\ : ``module2 = bake(deep=True)``. Then if ``m2.d is not module.d``.
 
-   from mymodule import a
-   a # 1
+Note that ``__builtins__`` and other modules in ``module`` are not copied.
 
-Importing names dynamically
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Submodules
+^^^^^^^^^^
 
-``mymodule.py``\ :
+Say we have following structure:
 
-.. code-block:: python
+.. code-block::
 
-   from modkit import modkit
+   |- module
+      |- __init__.py
+      |- sub.py
 
-   @modkit.delegate
-   def delegate(module, name):
-       if name == 'a':
-           return 1
-       if name == 'b':
-           return 2
-       if name == 'c':
-           return lambda: 3
-
-.. code-block:: python
-
-   from mymodule import a, b, c
-   a # 1
-   b # 2
-   c() # 3
-
-..
-
-   NOTE: since ``0.2.0``\ , you have to use ``decorator`` ``modkit.delegate`` for delegator \
-         ``_modkit_delegate`` is not available any more \
-         Same for ``_modkit_call``\ , do ``@modkit.call`` as well
-
-
-Using model as a function
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-``mymodule.py``
+If ``__getattr__`` is defined in ``__init__.py``\ , when we do:
 
 .. code-block:: python
 
-   from modkit import modkit
+   from module import sub
+   # or
+   # import module
+   # module.sub
 
-   @modkit.call
-   def call(module, assigned_to, value):
-       print(f'Value {value} is assigned to: {assigned_to or 'nothing'}')
-       return value
+``__getattr__`` will first handle this, meaning the ``sub`` module will not be imported as expected. You have to do it inside ``__getattr__``\ :
 
-   # module and assigned_to are required arguments
-   # you can pass other arbitrary arguments other than value
-
-.. code-block:: python
-
-   import mymodule
-
-   result = mymodule(1)
-   # Value 1 is assigned to: result
-   # result == 1
-
-   mymodule(10)
-   # Value 10 is assigned to: nothing
-
-Baking a module
-^^^^^^^^^^^^^^^
-
-``mymodule.py``
+``modkit`` has a helper function ``submodule``\ , which tries to import the submodule under current one.
 
 .. code-block:: python
 
-   from modkit import modkit
+   from modkit import install, submodule
+   def __getattr__(name):
+       submod = submodule(name)
+       if submod:
+           # submodule imported
+           return submod
+       # other stuff you want to do with name
+       # or raise error
 
-   data = {}
+   install()
 
-   @modkit.call
-   def call(module, assigned_to):
-       # module is deeply baked!
-       newmod = module.__bake__(assigned_to)
-       return newmod
+Then ``from module import sub`` or ``module.sub`` will work as expected.
 
-.. code-block:: python
+Note that ``submodule`` will not raise ``ImportError``. If import fails, it will return ``None``.
 
-   import mymodule
-   mymodule2 = mymodule()
-   mymodule2.data['a'] = 1
-
-   # mymodule.data == {}
-
-Submodule
-^^^^^^^^^
-
-``submodule.py``
-
-.. code-block:: python
-
-   data = {}
-
-``mymodule.py``
-
-.. code-block:: python
-
-   from modkit import modkit
-   from .submodule import data
-
-   @modkit.call
-   def call(module, assigned_to):
-       newmod = module.__bake__(assigned_to)
-       return newmod
-
-.. code-block:: python
-
-   import mymodule
-   mymodule2 = mymodule()
-   mymodule2.data['a'] = 1
-
-   # mymodule2.data == mymodule.data ==  {'a': 1}
+The loader and spec have not being changed while a module is baked. So, we can also import submodules from a baked module.
