@@ -8,7 +8,7 @@ def __getattr__(name):
 def __getitem__(name):
     return name.lower()
 
-def __call__(baked_name, deep=False):
-    return bake(baked_name, deep)
+def __call__(baked_name):
+    return bake(baked_name)
 
 install()

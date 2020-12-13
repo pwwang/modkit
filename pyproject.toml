@@ -4,7 +4,7 @@ build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "modkit"
-version = "0.3.0"
+version = "0.3.1"
 description = "Tweak your modules the way you want"
 authors = [ "pwwang <pwwang@pwwang.com>",]
 license = "MIT"

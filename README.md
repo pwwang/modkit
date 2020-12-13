@@ -3,11 +3,10 @@
 [![Pypi](https://img.shields.io/pypi/v/modkit?style=flat-square)](https://pypi.org/project/modkit/)
 [![Github](https://img.shields.io/github/tag/pwwang/modkit?style=flat-square)](https://github.com/pwwang/modkit)
 [![PythonVers](https://img.shields.io/pypi/pyversions/modkit?style=flat-square)](https://pypi.org/project/modkit/)
-[![Travis building](https://img.shields.io/travis/pwwang/modkit?style=flat-square)](https://travis-ci.org/pwwang/modkit)
 
 Tweak your modules the way you want
 
-## Install
+## Installation
 ```shell
 pip install -U modkit
 ```
@@ -46,9 +45,9 @@ module['c'] # C
 module('e') # ee
 ```
 
-### Bake a module
+### Baking a module
 
-You can make a copy of your module with modkit easilyl
+You can make a copy of your module with modkit easily.
 
 `module.py`
 
@@ -71,13 +70,10 @@ m2
 # <module 'module2' from './module.py' (wrapped by modkit)>
 m2.__name__ # 'module2
 m2.d['a'] = 1
-# This is a shalow copy
-module.d['a'] # 1
+
+module.d == {}
 ```
-
-You can also do a deep copy, while using `bake`: `module2 = bake(deep=True)`. Then if `m2.d is not module.d`.
-
-Note that `__builtins__` and other modules in `module` are not copied.
+Note that baking re-execute the original module and generate a new module.
 
 ### Submodules
 
@@ -115,4 +111,4 @@ Then `from module import sub` or `module.sub` will work as expected.
 
 Note that `submodule` will not raise `ImportError`. If import fails, it will return `None`.
 
-The loader and spec have not being changed while a module is baked. So, we can also import submodules from a baked module.
+Note that we can also import submodules from a baked module, just like we do for the original module.

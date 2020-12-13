@@ -38,18 +38,15 @@ def test_wrapped():
     assert baked.__name__ == 'baked'
     assert 'wrapped by modkit' in repr(baked)
     assert baked.d == {}
-    baked.d['a'] = 1
-    assert baked.d['a'] == 1
-    assert wrapped_module.d['a'] == 1
-
-    baked2 = wrapped_module('baked2', deep=True)
-    assert baked2.__name__ == 'baked2'
-    baked2.d['a'] = 2
-    assert baked2.d['a'] == 2
-    assert wrapped_module.d['a'] == 1
+    baked.d['a'] = 2
+    assert baked.d['a'] == 2
+    assert wrapped_module.d == {}
 
     with pytest.raises(ValueError, match='A name is required'):
         wrapped_module(None)
+
+    import baked as baked2
+    assert baked2 is baked
 
 def test_with_submodule():
     from . import with_submodules
@@ -59,3 +56,7 @@ def test_with_submodule():
 
     from .with_submodules import sub
     assert sub.s == 1
+
+    baked_ws = with_submodules('baked_ws')
+    from baked_ws import sub as sub2
+    assert sub2 is sub
