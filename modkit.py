@@ -1,7 +1,6 @@
 """modkit: Tweak your modules the way you want"""
 import sys
 import inspect
-from copy import deepcopy
 from types import ModuleType
 from typing import Any, Optional
 from importlib.machinery import ModuleSpec
@@ -38,9 +37,11 @@ class Module(ModuleType):
     def _exec_from(self, module: ModuleType) -> None:
         """Update the dict from the original module"""
         self.__origin__ = module
+        # pylint: disable=attribute-defined-outside-init
         self.__doc__ = module.__doc__
         self.__dict__.update(
-            {key: val for key, val in module.__dict__.items() if key != '__name__'}
+            {key: val for key, val in module.__dict__.items()
+             if key != '__name__'}
         )
 
     def __getitem__(self, name: Any) -> Any:
@@ -148,6 +149,7 @@ def bake(baked_name: Optional[str] = None,
 
     class ModuleLoader(Loader):
         """Module loader to load the baked module"""
+        # pylint: disable=no-self-use,abstract-method
         def create_module(self, spec):
             """Create the module"""
             return Module(baked_name)
@@ -158,7 +160,9 @@ def bake(baked_name: Optional[str] = None,
 
     class ModuleFinder(MetaPathFinder):
         """Module finder to find the baked module"""
+        # pylint: disable=no-self-use,unused-argument
         def find_spec(self, fullname, path, target=None):
+            """Find the spec for the module"""
             if fullname != baked_name:
                 return None
             return ModuleSpec(baked_name, ModuleLoader())

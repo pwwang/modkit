@@ -24,7 +24,7 @@ if os.path.exists(readme_path):
 setup(
     long_description=readme,
     name='modkit',
-    version='0.3.0',
+    version='0.3.1',
     description='Tweak your modules the way you want',
     python_requires='==3.*,>=3.6.0',
     project_urls={"homepage": "https://github.com/pwwang/modkit", "repository": "https://github.com/pwwang/modkit"},

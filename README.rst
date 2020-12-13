@@ -18,15 +18,10 @@ modkit
    :alt: PythonVers
 
 
-.. image:: https://img.shields.io/travis/pwwang/modkit?style=flat-square
-   :target: https://travis-ci.org/pwwang/modkit
-   :alt: Travis building
-
-
 Tweak your modules the way you want
 
-Install
--------
+Installation
+------------
 
 .. code-block:: shell
 
@@ -67,16 +62,16 @@ Usage
    module['c'] # C
    module('e') # ee
 
-Bake a module
-^^^^^^^^^^^^^
+Baking a module
+^^^^^^^^^^^^^^^
 
-You can make a copy of your module with modkit easilyl
+You can make a copy of your module with modkit easily.
 
 ``module.py``
 
 .. code-block:: python
 
-   from modkit import bake
+   from modkit import install, bake
 
    d = {}
 
@@ -84,6 +79,8 @@ You can make a copy of your module with modkit easilyl
        module2 = bake()
        return module2
        # or return bake('module2')
+
+   install()
 
 .. code-block:: python
 
@@ -94,12 +91,10 @@ You can make a copy of your module with modkit easilyl
    # <module 'module2' from './module.py' (wrapped by modkit)>
    m2.__name__ # 'module2
    m2.d['a'] = 1
-   # This is a shalow copy
-   module.d['a'] # 1
 
-You can also do a deep copy, while using ``bake``\ : ``module2 = bake(deep=True)``. Then if ``m2.d is not module.d``.
+   module.d == {}
 
-Note that ``__builtins__`` and other modules in ``module`` are not copied.
+Note that baking re-execute the original module and generate a new module.
 
 Submodules
 ^^^^^^^^^^
@@ -142,4 +137,4 @@ Then ``from module import sub`` or ``module.sub`` will work as expected.
 
 Note that ``submodule`` will not raise ``ImportError``. If import fails, it will return ``None``.
 
-The loader and spec have not being changed while a module is baked. So, we can also import submodules from a baked module.
+Note that we can also import submodules from a baked module, just like we do for the original module.
