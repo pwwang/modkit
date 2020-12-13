@@ -3,6 +3,7 @@ import sys
 import inspect
 from types import ModuleType
 from typing import Any, Optional
+from importlib import import_module
 from importlib.machinery import ModuleSpec
 from importlib.abc import MetaPathFinder, Loader
 from importlib.util import module_from_spec
@@ -167,8 +168,8 @@ def bake(baked_name: Optional[str] = None,
                 return None
             return ModuleSpec(baked_name, ModuleLoader())
 
-    sys.meta_path.append(ModuleFinder())
-    # Now we can do import, and note this has the lowest priority
+    sys.meta_path.insert(0, ModuleFinder())
+    # Now we can do import, and note this has the highest priority
     return __import__(baked_name)
 
 def submodule(submod_name, name=None) -> Optional[ModuleType]:
@@ -183,12 +184,9 @@ def submodule(submod_name, name=None) -> Optional[ModuleType]:
             to get the module.
     """
     module = sys.modules[name] if name else _module_from_frames()
+
     try:
-        mod = __import__(f'{module.__name__}.{submod_name}')
+        return import_module(f'{module.__name__}.{submod_name}',
+                             module.__package__)
     except ImportError:
         return None
-    else:
-        names = module.__name__.split('.') + [submod_name]
-        for nam in names[1:]:
-            mod = getattr(mod, nam)
-        return mod
